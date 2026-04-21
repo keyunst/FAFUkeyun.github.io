@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>2020年中国各省常住人口与城镇化水平空间可视化系统</title>
+  
+  <!-- ArcGIS核心样式 & Calcite组件样式 + JS (必须加载calcite组件库) -->
+  <link rel="stylesheet" href="https://js.arcgis.com/5.0/esri/themes/light/main.css">
+  <link rel="stylesheet" href="https://js.arcgis.com/calcite-components/3.0.3/calcite.css">
+  <script type="module" src="https://js.arcgis.com/calcite-components/3.0.3/calcite.esm.js"></script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg0: #060713;
+      --bg1: #0b1220;
+      --line: rgba(15, 23, 42, 0.10);
+      --brand1: #6d28d9;
+      --brand2: #2563eb;
+      --shadow: 0 22px 60px rgba(2, 6, 23, 0.28);
+      --card-bg: #ffffff;
+      --card-text: #0f172a;
+      --muted: #6b7280;
+    }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: radial-gradient(1200px 700px at 15% -10%, rgba(109,40,217,0.25), transparent 60%),
+                  radial-gradient(1000px 600px at 90% -20%, rgba(37,99,235,0.22), transparent 55%),
+                  linear-gradient(180deg, var(--bg0), var(--bg1));
+    }
+
+    calcite-shell {
+      position: fixed;
+      inset: 0;
+    }
+
+    /* 薄荷绿页眉 */
+    header[slot="header"],
+    .app-header {
+      height: 66px !important;
+      padding: 10px 14px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      background: linear-gradient(135deg, #0f766e 0%, #34d399 55%, #065f46 100%) !important;
+      border-top: 1px solid rgba(255,255,255,0.18) !important;
+      border-bottom: 1px solid rgba(255,255,255,0.16) !important;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.22) !important;
+      color: #ffffff !important;
+    }
+
+    .header-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .logo-mark {
+      width: 14px; height: 14px; border-radius: 6px;
+      background: radial-gradient(circle at 30% 30%, #d1fae5, #34d399);
+      box-shadow: 0 0 0 9px rgba(52,211,153,0.20);
+    }
+    .titles { min-width: 0; }
+    .title {
+      font-size: 15px; font-weight: 950; letter-spacing: .2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .subtitle {
+      margin-top: 2px; font-size: 12px;
+      color: rgba(255,255,255,0.90);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #ffffff !important;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.26);
+      background: rgba(0,0,0,0.14);
+    }
+    .status .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 0 6px rgba(34,197,94,0.16);
+    }
+
+    /* ========= 页眉按钮统一白色样式 (修复重置/截图按钮颜色) ========= */
+    .app-header calcite-button,
+    header[slot="header"] calcite-button {
+      --calcite-color-text-1: #ffffff !important;
+      --calcite-color-text-inverse: #0b1220;
+      --calcite-color-border-1: rgba(255, 255, 255, 0.5) !important;
+      --calcite-color-brand: #ffffff;
+    }
+    /* 强制 outline 和 solid 按钮的文字/边框为白色 */
+    .app-header calcite-button::part(button),
+    header[slot="header"] calcite-button::part(button) {
+      color: #ffffff !important;
+      background-color: rgba(0, 0, 0, 0.2) !important;
+      backdrop-filter: blur(2px);
+      border-color: rgba(255, 255, 255, 0.5) !important;
+      transition: all 0.2s ease;
+    }
+    /* 悬停效果 */
+    .app-header calcite-button::part(button):hover,
+    header[slot="header"] calcite-button::part(button):hover {
+      background-color: rgba(255, 255, 255, 0.2) !important;
+      border-color: rgba(255, 255, 255, 0.9) !important;
+      color: #ffffff !important;
+    }
+    /* 针对 solid 类型的按钮 (实验说明) 也统一，但保持更实一点 */
+    .app-header calcite-button[appearance="solid"]::part(button),
+    header[slot="header"] calcite-button[appearance="solid"]::part(button) {
+      background-color: rgba(255, 255, 255, 0.18) !important;
+      border-color: rgba(255, 255, 255, 0.4) !important;
+    }
+    .app-header calcite-button[appearance="solid"]::part(button):hover,
+    header[slot="header"] calcite-button[appearance="solid"]::part(button):hover {
+      background-color: rgba(255, 255, 255, 0.35) !important;
+    }
+
+    #viewDiv {
+      height: 100%;
+      width: 100%;
+    }
+
+    calcite-shell-panel[slot="panel-start"] {
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+      border-right: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .panel-pad { padding: 12px; box-sizing: border-box; }
+    .panel-footer {
+      padding: 10px 12px 12px;
+      border-top: 1px solid var(--line);
+    }
+    .hint { margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .section-title { font-weight: 950; margin: 4px 0 10px; color: var(--card-text); }
+    .row-between { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 0 8px; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+
+    .map-hud {
+      position: absolute;
+      right: 14px; bottom: 14px;
+      z-index: 5;
+      padding: 8px 10px; border-radius: 12px;
+      background: rgba(17,24,39,0.82); color: rgba(255,255,255,0.92);
+      border: 1px solid rgba(255,255,255,0.14);
+      font-size: 12px; backdrop-filter: blur(12px);
+      pointer-events: none;
+      font-family: monospace;
+    }
+
+    .loading {
+      position: absolute; inset: 0; z-index: 20;
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at center, rgba(0,0,0,0.65), rgba(0,0,0,0.85));
+      backdrop-filter: blur(8px);
+      transition: opacity 0.2s;
+    }
+    .loading.hidden { display: none; }
+    .loading-card {
+      width: min(540px, 92%);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.96);
+      border: 1px solid rgba(2,6,23,0.10);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      text-align: center;
+    }
+    .loading-title { font-weight: 900; font-size: 1.2rem; color: #111827; margin-bottom: 8px; }
+    .loading-sub { font-size: 13px; color: #6b7280; margin-top: 6px; }
+    .error-msg { color: #b91c1c; background: #fee2e2; padding: 8px; border-radius: 12px; margin-top: 12px; font-size: 12px; }
+
+    /* 统计卡片 */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .stat-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: linear-gradient(180deg, var(--card-bg), color-mix(in srgb, var(--card-bg) 95%, #f1f5ff));
+      color: var(--card-text);
+      box-shadow: 0 8px 18px rgba(2,6,23,0.06);
+    }
+    .stat-label { font-size: 12px; color: var(--muted); }
+    .stat-value { margin-top: 4px; font-size: 18px; font-weight: 1000; }
+
+    /* Top10 排行样式 */
+    .rank-list { margin-top: 8px; display: grid; gap: 8px; max-height: 280px; overflow-y: auto; }
+    .rank-item {
+      display: grid;
+      grid-template-columns: 24px 1fr 80px;
+      align-items: center;
+      gap: 10px;
+    }
+    .rank-no { font-weight: 1000; color: var(--card-text); text-align: right; }
+    .rank-name {
+      font-size: 13px; color: var(--card-text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .rank-val {
+      font-size: 12px; color: var(--card-text);
+      text-align: right; font-variant-numeric: tabular-nums;
+    }
+    .rank-bar {
+      grid-column: 2 / 4;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(37,99,235,0.14);
+      overflow: hidden;
+    }
+    .rank-bar > div {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--brand1), var(--brand2));
+    }
+
+    .measure-host { margin-top: 6px; }
+    calcite-modal { --calcite-modal-content-padding: 0 1rem 1rem; }
+    .modal-body h3 { margin: 10px 0 6px; font-size: 14px; font-weight: 900; }
+    .mono { font-family: monospace; background: #f1f5f9; padding: 2px 4px; border-radius: 6px; }
+
+    @media (max-width: 980px) {
+      .status { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <calcite-shell>
+    <!-- 页眉区 -->
+    <header slot="header" class="app-header">
+      <div class="header-left">
+        <div class="logo-mark"></div>
+        <div class="titles">
+          <div class="title">2020年中国各省常住人口与城镇化水平空间可视化系统</div>
+          <div class="subtitle">实验六｜ArcGIS Maps SDK 5.0 · GeoScene Online WebMap</div>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="status">
+          <span class="dot"></span>
+          <span id="clock">--:--:--</span>
+        </div>
+        <calcite-button id="resetBtn" appearance="outline" scale="s" icon-start="refresh">重置</calcite-button>
+        <calcite-button id="screenshotBtn" appearance="outline" scale="s" icon-start="camera">截图</calcite-button>
+        <calcite-button id="openAbout" appearance="solid" scale="s" icon-start="information">实验说明</calcite-button>
+      </div>
+    </header>
+
+    <!-- 左侧面板 -->
+    <calcite-shell-panel slot="panel-start" display-mode="dock" width-scale="m">
+      <calcite-action-bar slot="action-bar" id="actionBar">
+        <calcite-action data-target="panel-basemap" icon="basemap" text="底图库" active></calcite-action>
+        <calcite-action data-target="panel-layers" icon="layers" text="图层"></calcite-action>
+        <calcite-action data-target="panel-legend" icon="legend" text="图例"></calcite-action>
+        <calcite-action data-target="panel-search" icon="search" text="搜索"></calcite-action>
+        <calcite-action data-target="panel-stats" icon="graph-bar" text="统计"></calcite-action>
+        <calcite-action data-target="panel-tools" icon="hammer" text="工具"></calcite-action>
+      </calcite-action-bar>
+
+      <calcite-panel heading="底图库（Basemap Gallery）" data-panel="panel-basemap">
+        <div class="panel-pad"><div id="basemapDiv"></div></div>
+      </calcite-panel>
+      <calcite-panel heading="图层列表（LayerList）" data-panel="panel-layers" hidden>
+        <div class="panel-pad"><div id="layerListDiv"></div></div>
+      </calcite-panel>
+      <calcite-panel heading="图例（Legend）" data-panel="panel-legend" hidden>
+        <div class="panel-pad"><div id="legendDiv"></div></div>
+      </calcite-panel>
+      <calcite-panel heading="搜索（Search）" data-panel="panel-search" hidden>
+        <div class="panel-pad"><div id="searchDiv"></div><div class="hint">优先搜索专题图层字段</div></div>
+      </calcite-panel>
+      
+      <!-- 统计面板 -->
+      <calcite-panel heading="数据统计（Stats）" data-panel="panel-stats" hidden>
+        <div class="panel-pad">
+          <div class="stat-grid">
+            <div class="stat-card"><div class="stat-label">省份数</div><div class="stat-value" id="statCount">-</div></div>
+            <div class="stat-card"><div class="stat-label">总人口（万人）</div><div class="stat-value" id="statSum">-</div></div>
+            <div class="stat-card"><div class="stat-label">平均城镇化</div><div class="stat-value" id="statAvg">-</div></div>
+            <div class="stat-card"><div class="stat-label">最高城镇化</div><div class="stat-value" id="statMax">-</div></div>
+          </div>
+          <calcite-divider></calcite-divider>
+          <div class="section-title">快速定位省份</div>
+          <calcite-label><calcite-select id="provinceQuickSelect"></calcite-select></calcite-label>
+          <calcite-divider></calcite-divider>
+          <div class="row-between">
+            <div class="section-title" style="margin:0;">Top10 排行</div>
+            <calcite-segmented-control id="metricSeg" scale="s">
+              <calcite-segmented-control-item value="pop" checked>人口(万人)</calcite-segmented-control-item>
+              <calcite-segmented-control-item value="urban">城镇化率</calcite-segmented-control-item>
+            </calcite-segmented-control>
+          </div>
+          <div id="topRank" class="rank-list"></div>
+        </div>
+      </calcite-panel>
+
+      <!-- 工具面板 -->
+      <calcite-panel heading="实用工具（Tools）" data-panel="panel-tools" hidden>
+        <div class="panel-pad">
+          <div class="section-title">量测</div>
+          <div class="btn-row">
+            <calcite-button id="measureLineBtn" appearance="outline" scale="s" icon-start="measure">距离</calcite-button>
+            <calcite-button id="measureAreaBtn" appearance="outline" scale="s" icon-start="measure-area">面积</calcite-button>
+            <calcite-button id="measureClearBtn" appearance="outline" scale="s" icon-start="trash">清除</calcite-button>
+          </div>
+          <div id="measureDiv" class="measure-host"></div>
+          <calcite-divider></calcite-divider>
+          <div class="section-title">视图</div>
+          <div class="btn-row">
+            <calcite-button id="goHomeBtn" appearance="outline" scale="s" icon-start="home">回到默认</calcite-button>
+            <calcite-button id="zoomInBtn" appearance="outline" scale="s" icon-start="plus">放大</calcite-button>
+            <calcite-button id="zoomOutBtn" appearance="outline" scale="s" icon-start="minus">缩小</calcite-button>
+          </div>
+          <calcite-divider></calcite-divider>
+          <calcite-button id="exportPngBtn" appearance="solid" width="full" icon-start="download">导出地图为 PNG</calcite-button>
+        </div>
+      </calcite-panel>
+      <div class="panel-footer">
+        <calcite-button id="collapsePanelBtn" appearance="outline" width="full" icon-start="chevron-left">折叠侧栏（扩大地图）</calcite-button>
+      </div>
+    </calcite-shell-panel>
+
+    <!-- 地图容器 -->
+    <div id="viewDiv"></div>
+    <div class="map-hud" id="coordDiv">Lon: -- , Lat: --</div>
+
+    <!-- 加载遮罩（含错误展示） -->
+    <div class="loading" id="loading">
+      <div class="loading-card">
+        <div class="loading-title">🗺️ 正在加载 WebMap</div>
+        <div class="loading-sub">数据源：GeoScene Online 中国人口专题图</div>
+        <div id="loadingErrorMsg" class="error-msg" style="display:none;"></div>
+        <div class="loading-sub" style="margin-top:12px;">若长时间无地图，请检查网络或按F12查看控制台</div>
+      </div>
+    </div>
+
+    <!-- 说明弹窗 -->
+    <calcite-modal id="aboutModal" heading="实验说明 / 作业对照" width="m">
+      <div slot="content" class="modal-body">
+        <h3>1. 项目名称</h3>
+        <p>2020年中国各省常住人口与城镇化水平空间可视化系统</p>
+        <h3>2. 数据来源</h3>
+        <p>GeoScene Online WebMap：<span class="mono">5d6e5d9225294277b6317dea60beab2e</span><br>字段：<span class="mono">SUM_2020</span> 常住人口(万人)；<span class="mono">2020_城</span> 城镇化率(%)</p>
+        <h3>3. 实验要求对照</h3>
+        <ul><li>三大区域：页眉/地图区/底图库与图层区</li><li>控件：底图库、图层列表、图例、搜索、比例尺</li></ul>
+        <h3>4. 扩展功能</h3>
+        <ul><li>数据统计（总人口/平均城镇化/Top10排行/快速定位）</li><li>量测工具、地图截图/导出PNG</li><li><b>重置</b>：恢复默认视图、清除量测、折叠侧栏并回到底图库面板</li></ul>
+      </div>
+      <calcite-button slot="primary" appearance="solid" id="closeAbout">关闭</calcite-button>
+    </calcite-modal>
+  </calcite-shell>
+
+  <script type="module">
+    import esriConfig from "https://js.arcgis.com/5.0/@arcgis/core/config.js";
+    import WebMap from "https://js.arcgis.com/5.0/@arcgis/core/WebMap.js";
+    import MapView from "https://js.arcgis.com/5.0/@arcgis/core/views/MapView.js";
+    import BasemapGallery from "https://js.arcgis.com/5.0/@arcgis/core/widgets/BasemapGallery.js";
+    import LayerList from "https://js.arcgis.com/5.0/@arcgis/core/widgets/LayerList.js";
+    import Legend from "https://js.arcgis.com/5.0/@arcgis/core/widgets/Legend.js";
+    import Search from "https://js.arcgis.com/5.0/@arcgis/core/widgets/Search.js";
+    import ScaleBar from "https://js.arcgis.com/5.0/@arcgis/core/widgets/ScaleBar.js";
+    import Home from "https://js.arcgis.com/5.0/@arcgis/core/widgets/Home.js";
+    import Compass from "https://js.arcgis.com/5.0/@arcgis/core/widgets/Compass.js";
+    import Fullscreen from "https://js.arcgis.com/5.0/@arcgis/core/widgets/Fullscreen.js";
+    import Measurement from "https://js.arcgis.com/5.0/@arcgis/core/widgets/Measurement.js";
+
+    // 配置 GeoScene Online 中国区入口
+    esriConfig.portalUrl = "https://www.geosceneonline.cn/geoscene";
+    const WEBMAP_ID = "5d6e5d9225294277b6317dea60beab2e";
+    const POP_FIELD = "SUM_2020";
+    const URBAN_FIELD = "2020_城";
+
+    // DOM 元素
+    const loadingEl = document.getElementById("loading");
+    const loadingErrorMsg = document.getElementById("loadingErrorMsg");
+    const coordDiv = document.getElementById("coordDiv");
+    const clockEl = document.getElementById("clock");
+    const aboutModal = document.getElementById("aboutModal");
+    const resetBtn = document.getElementById("resetBtn");
+    const screenshotBtn = document.getElementById("screenshotBtn");
+    const collapseBtn = document.getElementById("collapsePanelBtn");
+    const shellPanel = document.querySelector('calcite-shell-panel[slot="panel-start"]');
+    
+    // 全局变量
+    let view = null;
+    let measurement = null;
+    let defaultViewpoint = null;
+    let currentHighlight = null;
+    let provinceSelect = null;
+    let statsDataList = [];
+
+    // 辅助函数
+    function pad2(n) { return String(n).padStart(2, "0"); }
+    function updateClock() {
+      if (!clockEl) return;
+      const d = new Date();
+      clockEl.textContent = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+    }
+    updateClock(); setInterval(updateClock, 1000);
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+      });
+    }
+    function formatNumber(n) {
+      if (isNaN(n) || n === null || n === undefined) return "-";
+      return Math.round(n).toLocaleString();
+    }
+    function formatPercent(n, digits = 2) {
+      if (isNaN(n) || n === null) return "-";
+      return n.toFixed(digits) + "%";
+    }
+    function normalizeName(name) {
+      let s = String(name ?? "").trim().replace(/\s+/g, "");
+      const suffixes = ["特别行政区","维吾尔自治区","壮族自治区","回族自治区","自治区","省","市"];
+      for (const suf of suffixes) if (s.endsWith(suf)) { s = s.slice(0, -suf.length); break; }
+      return s;
+    }
+
+    // 侧栏逻辑
+    function syncCollapseBtn() {
+      if (!collapseBtn || !shellPanel) return;
+      collapseBtn.iconStart = shellPanel.collapsed ? "chevron-right" : "chevron-left";
+      collapseBtn.textContent = shellPanel.collapsed ? "展开侧栏（功能面板）" : "折叠侧栏（扩大地图）";
+    }
+    function setSidebarCollapsed(collapsed) {
+      if (!shellPanel) return;
+      shellPanel.collapsed = !!collapsed;
+      syncCollapseBtn();
+      updateUIPadding();
+      setTimeout(updateUIPadding, 260);
+    }
+    function updateUIPadding() {
+      if (!shellPanel || !view) return;
+      const w = shellPanel.getBoundingClientRect().width;
+      const left = Math.max(10, Math.round(w + 12));
+      view.ui.padding = { left, right: 12, top: 76, bottom: 22 };
+    }
+    if (shellPanel && window.ResizeObserver) {
+      const ro = new ResizeObserver(() => updateUIPadding());
+      ro.observe(shellPanel);
+    }
+    window.addEventListener("resize", () => updateUIPadding());
+
+    // 面板切换
+    const actions = [...document.querySelectorAll("calcite-action[data-target]")];
+    const panels = [...document.querySelectorAll("calcite-panel[data-panel]")];
+    function showPanel(target) {
+      actions.forEach(a => a.active = (a.getAttribute("data-target") === target));
+      panels.forEach(p => p.hidden = (p.getAttribute("data-panel") !== target));
+    }
+    actions.forEach(a => {
+      a.addEventListener("click", () => {
+        if (!shellPanel) return;
+        const target = a.getAttribute("data-target");
+        if (shellPanel.collapsed) {
+          setSidebarCollapsed(false);
+          showPanel(target);
+          return;
+        }
+        if (a.active === true) {
+          setSidebarCollapsed(true);
+          actions.forEach(x => x.active = false);
+        } else {
+          showPanel(target);
+        }
+      });
+    });
+    collapseBtn?.addEventListener("click", () => setSidebarCollapsed(!shellPanel.collapsed));
+
+    // 默认视图相关
+    async function goDefault() {
+      if (defaultViewpoint) await view.goTo(defaultViewpoint);
+      else await zoomToData();
+    }
+    async function zoomToData() {
+      const fLayers = view.map.allLayers.filter(l => l.type === "feature");
+      for (const l of fLayers) {
+        try { await l.load(); if (l.fullExtent) { await view.goTo(l.fullExtent.expand(1.2)); return; } } catch(e) {}
+      }
+    }
+
+    // 地图初始化
+    const webmap = new WebMap({ portalItem: { id: WEBMAP_ID } });
+    view = new MapView({ container: "viewDiv", map: webmap, popup: { dockEnabled: true, dockOptions: { position: "bottom-right" } } });
+    
+    // 添加UI控件
+    view.ui.empty("top-left"); view.ui.empty("top-right");
+    const homeWidget = new Home({ view });
+    view.ui.add(homeWidget, "top-right");
+    view.ui.add(new Compass({ view }), "top-right");
+    view.ui.add(new Fullscreen({ view }), "top-right");
+    view.ui.add(new ScaleBar({ view, unit: "metric" }), "bottom-left");
+    
+    // 实例化侧边栏内控件
+    new BasemapGallery({ view, container: "basemapDiv" });
+    new LayerList({ view, container: "layerListDiv" });
+    new Legend({ view, container: "legendDiv" });
+    const searchWidget = new Search({ view, container: "searchDiv", includeDefaultSources: false });
+    
+    // 量测工具
+    try {
+      measurement = new Measurement({ view, container: "measureDiv" });
+      document.getElementById("measureLineBtn")?.addEventListener("click", () => measurement.activeTool = "distance");
+      document.getElementById("measureAreaBtn")?.addEventListener("click", () => measurement.activeTool = "area");
+      document.getElementById("measureClearBtn")?.addEventListener("click", () => measurement.clear());
+    } catch(e) { console.warn("量测工具加载失败", e); }
+    
+    // 工具按钮事件
+    document.getElementById("goHomeBtn")?.addEventListener("click", () => goDefault());
+    document.getElementById("zoomInBtn")?.addEventListener("click", () => view.goTo({ zoom: view.zoom + 1 }));
+    document.getElementById("zoomOutBtn")?.addEventListener("click", () => view.goTo({ zoom: view.zoom - 1 }));
+    async function exportPng() {
+      const shot = await view.takeScreenshot({ format: "png", quality: 1 });
+      const blob = await fetch(shot.dataUrl).then(r => r.blob());
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `china_population_map_${new Date().toISOString().slice(0,19).replace(/:/g, "-")}.png`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+    document.getElementById("exportPngBtn")?.addEventListener("click", exportPng);
+    screenshotBtn?.addEventListener("click", exportPng);
+    
+    // 构建搜索源
+    async function buildSearchSources() {
+      await view.map.loadAll();
+      const sources = [];
+      view.map.allLayers.forEach(lyr => {
+        if (lyr.type === "feature" && lyr.fields) {
+          const strField = lyr.fields.find(f => f.type === "string" && (f.name.includes("省") || f.name.includes("name") || (f.alias && f.alias.includes("省"))));
+          if (strField) sources.push({ layer: lyr, searchFields: [strField.name], displayField: strField.name, outFields: ["*"] });
+        }
+      });
+      if (sources.length) searchWidget.sources = sources;
+    }
+    
+    // 坐标显示
+    view.on("pointer-move", (evt) => {
+      const p = view.toMap({ x: evt.x, y: evt.y });
+      if (p && coordDiv) coordDiv.textContent = `Lon: ${p.longitude.toFixed(5)} , Lat: ${p.latitude.toFixed(5)}`;
+    });
+    
+    // ---------- 统计与专题数据加载 ----------
+    async function initStats() {
+      await view.map.loadAll();
+      const layers = view.map.allLayers.filter(l => l.type === "feature");
+      if (!layers.length) throw new Error("未找到要素图层，请检查WebMap是否公开");
+      const polyLayer = layers.find(l => l.geometryType === "polygon") || layers[0];
+      await polyLayer.load();
+      const nameField = polyLayer.displayField || polyLayer.fields.find(f => f.type === "string" && (f.name.includes("省") || f.alias?.includes("省")))?.name;
+      if (!nameField) throw new Error("未找到省份名称字段");
+      const oidField = polyLayer.objectIdField;
+      const baseQuery = await polyLayer.queryFeatures({ where: "1=1", outFields: [nameField, oidField], returnGeometry: true });
+      const extentMap = new Map(), oidMap = new Map(), displayMap = new Map();
+      baseQuery.features.forEach(f => {
+        let raw = String(f.attributes[nameField] ?? "").trim();
+        const key = normalizeName(raw);
+        if (!key) return;
+        displayMap.set(key, raw);
+        oidMap.set(key, f.attributes[oidField]);
+        if (f.geometry?.extent) extentMap.set(key, f.geometry.extent.clone());
+      });
+      
+      let popLayer = null, urbanLayer = null, popFieldName = null, urbanFieldName = null;
+      for (const lyr of layers) {
+        await lyr.load();
+        const popF = lyr.fields?.find(f => f.name === POP_FIELD || f.alias === POP_FIELD);
+        const urbanF = lyr.fields?.find(f => f.name === URBAN_FIELD || f.alias === URBAN_FIELD);
+        if (popF && !popLayer) { popLayer = lyr; popFieldName = popF.name; }
+        if (urbanF && !urbanLayer) { urbanLayer = lyr; urbanFieldName = urbanF.name; }
+      }
+      
+      const dataMap = new Map();
+      for (let [key, nameRaw] of displayMap.entries()) dataMap.set(key, { key, name: nameRaw, pop: NaN, urban: NaN });
+      
+      async function mergeLayer(layer, field, targetProp) {
+        if (!layer || !field) return;
+        const layerNameField = layer.displayField || layer.fields.find(f => f.type === "string")?.name;
+        if (!layerNameField) return;
+        const q = await layer.queryFeatures({ where: "1=1", outFields: [layerNameField, field], returnGeometry: false });
+        q.features.forEach(f => {
+          let n = String(f.attributes[layerNameField] ?? "").trim();
+          let key = normalizeName(n);
+          if (!key) return;
+          if (!dataMap.has(key)) dataMap.set(key, { key, name: n, pop: NaN, urban: NaN });
+          let val = Number(f.attributes[field]);
+          if (!isNaN(val)) dataMap.get(key)[targetProp] = val;
+        });
+      }
+      await mergeLayer(popLayer, popFieldName, "pop");
+      await mergeLayer(urbanLayer, urbanFieldName, "urban");
+      
+      const list = [...dataMap.values()];
+      statsDataList = list;
+      
+      document.getElementById("statCount").innerText = list.length;
+      const totalPop = list.filter(d => isFinite(d.pop)).reduce((s, d) => s + d.pop, 0);
+      document.getElementById("statSum").innerText = totalPop ? formatNumber(totalPop) : "-";
+      const urbanVals = list.map(d => d.urban).filter(v => isFinite(v));
+      const avgUrban = urbanVals.length ? urbanVals.reduce((a,b)=>a+b,0)/urbanVals.length : NaN;
+      document.getElementById("statAvg").innerText = isFinite(avgUrban) ? formatPercent(avgUrban) : "-";
+      const maxItem = list.filter(d => isFinite(d.urban)).sort((a,b)=>b.urban-a.urban)[0];
+      document.getElementById("statMax").innerText = maxItem ? `${maxItem.name} ${formatPercent(maxItem.urban)}` : "-";
+      
+      provinceSelect = document.getElementById("provinceQuickSelect");
+      if (provinceSelect) {
+        const sortedKeys = [...displayMap.keys()].sort((a,b)=>displayMap.get(a).localeCompare(displayMap.get(b), "zh"));
+        provinceSelect.innerHTML = `<calcite-option value="">— 选择省份 —</calcite-option>` + 
+          sortedKeys.map(k => `<calcite-option value="${escapeHtml(k)}">${escapeHtml(displayMap.get(k))}</calcite-option>`).join("");
+        provinceSelect.addEventListener("calciteSelectChange", async (e) => {
+          const key = provinceSelect.value;
+          if (!key) return;
+          if (currentHighlight) { currentHighlight.remove(); currentHighlight = null; }
+          const ext = extentMap.get(key);
+          if (ext) await view.goTo(ext.expand(1.35));
+          const oid = oidMap.get(key);
+          if (oid && polyLayer) {
+            const layerView = await view.whenLayerView(polyLayer);
+            if (layerView) currentHighlight = layerView.highlight([oid]);
+          }
+        });
+      }
+      
+      function renderTop10(metric = "pop") {
+        const sorted = [...list].filter(x => isFinite(x[metric])).sort((a,b)=>b[metric]-a[metric]).slice(0,10);
+        if (!sorted.length) { document.getElementById("topRank").innerHTML = "<div class='hint'>暂无数据</div>"; return; }
+        const maxVal = sorted[0][metric];
+        document.getElementById("topRank").innerHTML = sorted.map((item, idx) => {
+          const barWidth = maxVal ? Math.max(2, (item[metric] / maxVal) * 100) : 0;
+          const valueStr = metric === "pop" ? formatNumber(item.pop) : formatPercent(item.urban);
+          return `<div class="rank-item">
+            <div class="rank-no">${idx+1}</div>
+            <div class="rank-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</div>
+            <div class="rank-val">${escapeHtml(valueStr)}</div>
+            <div class="rank-bar"><div style="width:${barWidth}%"></div></div>
+          </div>`;
+        }).join("");
+      }
+      const segCtrl = document.getElementById("metricSeg");
+      const updateRank = () => renderTop10(segCtrl?.value === "urban" ? "urban" : "pop");
+      segCtrl?.addEventListener("calciteSegmentedControlChange", updateRank);
+      renderTop10("pop");
+    }
+    
+    // 重置功能
+    async function resetApp() {
+      try {
+        if (currentHighlight) { currentHighlight.remove(); currentHighlight = null; }
+        if (provinceSelect) provinceSelect.value = "";
+        if (measurement) { measurement.clear(); measurement.activeTool = null; }
+        setSidebarCollapsed(true);
+        showPanel("panel-basemap");
+        actions.forEach(a => a.active = false);
+        const baseAction = actions.find(a => a.getAttribute("data-target") === "panel-basemap");
+        if (baseAction) baseAction.active = true;
+        await goDefault();
+      } catch(e) { console.warn("重置异常", e); }
+    }
+    resetBtn?.addEventListener("click", resetApp);
+    
+    // 模态框
+    document.getElementById("openAbout")?.addEventListener("click", () => aboutModal.open = true);
+    document.getElementById("closeAbout")?.addEventListener("click", () => aboutModal.open = false);
+    
+    // 启动主流程，捕捉地图加载错误并显示
+    view.when(async () => {
+      try {
+        await view.map.loadAll();
+        await buildSearchSources();
+        await zoomToData();
+        if (!defaultViewpoint) defaultViewpoint = view.viewpoint?.clone() || view.viewpoint;
+        await initStats();
+      } catch (err) {
+        console.error("初始化功能模块失败:", err);
+        if (loadingErrorMsg) {
+          loadingErrorMsg.style.display = "block";
+          loadingErrorMsg.innerText = `⚠️ 模块错误: ${err.message}\n但地图底图仍可浏览，统计功能受限。`;
+        }
+      } finally {
+        loadingEl?.classList.add("hidden");
+        updateUIPadding();
+      }
+    }).catch(err => {
+      console.error("地图视图初始化失败:", err);
+      if (loadingErrorMsg) {
+        loadingErrorMsg.style.display = "block";
+        loadingErrorMsg.innerText = `地图加载失败: ${err.message}\n请确认网络能访问 https://www.geosceneonline.cn 且 WebMap ID 有效。`;
+      }
+      setTimeout(() => loadingEl?.classList.add("hidden"), 4000);
+    });
+    
+    syncCollapseBtn();
+    setTimeout(() => updateUIPadding(), 200);
+  </script>
+</body>
+</html>
