@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>2020年中国各省常住人口与城镇化水平空间可视化系统</title>
+
+  <link rel="stylesheet" href="https://js.arcgis.com/5.0/esri/themes/light/main.css" />
+  <link id="esriDarkCss" rel="stylesheet" href="https://js.arcgis.com/5.0/esri/themes/dark/main.css" disabled />
+
+  <link rel="stylesheet" href="https://js.arcgis.com/calcite-components/3.0.3/calcite.css" />
+  <script type="module" src="https://js.arcgis.com/calcite-components/3.0.3/calcite.esm.js"></script>
+
+  <link rel="stylesheet" href="./style.css" />
+  <script type="module" src="./main.js"></script>
+</head>
+
+<body>
+  <calcite-shell>
+    <!-- 区域1：页眉 -->
+    <header slot="header" class="app-header">
+      <div class="header-left">
+        <div class="logo-mark"></div>
+        <div class="titles">
+          <div class="title">2020年中国各省常住人口与城镇化水平空间可视化系统</div>
+          <div class="subtitle">实验六｜ArcGIS Maps SDK for JavaScript 5.0 · GeoScene Online WebMap</div>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <div class="status">
+          <span class="dot"></span>
+          <span id="clock">--:--:--</span>
+        </div>
+
+        <!-- 原“暗色”按钮：改为“重置” -->
+        <calcite-button id="themeBtn" appearance="outline" scale="s" icon-start="refresh">
+          重置
+        </calcite-button>
+
+        <calcite-button id="screenshotBtn" appearance="outline" scale="s" icon-start="camera">
+          截图
+        </calcite-button>
+
+        <calcite-button id="openAbout" appearance="solid" scale="s" icon-start="information">
+          实验说明
+        </calcite-button>
+      </div>
+    </header>
+
+    <!-- 区域3：侧栏 -->
+    <calcite-shell-panel slot="panel-start" display-mode="dock" width-scale="m">
+      <calcite-action-bar slot="action-bar" id="actionBar">
+        <calcite-action data-target="panel-basemap" icon="basemap" text="底图库" active></calcite-action>
+        <calcite-action data-target="panel-layers" icon="layers" text="图层"></calcite-action>
+        <calcite-action data-target="panel-legend" icon="legend" text="图例"></calcite-action>
+        <calcite-action data-target="panel-search" icon="search" text="搜索"></calcite-action>
+        <calcite-action data-target="panel-stats" icon="graph-bar" text="统计"></calcite-action>
+        <calcite-action data-target="panel-tools" icon="hammer" text="工具"></calcite-action>
+      </calcite-action-bar>
+
+      <calcite-panel heading="底图库（Basemap Gallery）" data-panel="panel-basemap">
+        <div class="panel-pad">
+          <div id="basemapDiv"></div>
+          <div class="hint"></div>
+        </div>
+      </calcite-panel>
+
+      <calcite-panel heading="图层列表（LayerList）" data-panel="panel-layers" hidden>
+        <div class="panel-pad">
+          <div id="layerListDiv"></div>
+        </div>
+      </calcite-panel>
+
+      <calcite-panel heading="图例（Legend）" data-panel="panel-legend" hidden>
+        <div class="panel-pad">
+          <div id="legendDiv"></div>
+        </div>
+      </calcite-panel>
+
+      <calcite-panel heading="搜索（Search）" data-panel="panel-search" hidden>
+        <div class="panel-pad">
+          <div id="searchDiv"></div>
+          <div class="hint">默认优先搜索专题图层字段。</div>
+        </div>
+      </calcite-panel>
+
+      <!-- 统计面板 -->
+      <calcite-panel heading="数据统计（Stats）" data-panel="panel-stats" hidden>
+        <div class="panel-pad">
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-label">省份数</div>
+              <div class="stat-value" id="statCount">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">总人口（万）</div>
+              <div class="stat-value" id="statSum">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">平均城镇化</div>
+              <div class="stat-value" id="statAvg">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">最高城镇化</div>
+              <div class="stat-value" id="statMax">-</div>
+            </div>
+          </div>
+
+          <calcite-divider></calcite-divider>
+
+          <div class="section-title">快速定位省份</div>
+          <calcite-label>
+            选择省份
+            <calcite-select id="provinceQuickSelect"></calcite-select>
+          </calcite-label>
+
+          <calcite-divider></calcite-divider>
+
+          <div class="row-between">
+            <div class="section-title" style="margin:0;">Top10 排行</div>
+            <calcite-segmented-control id="metricSeg" scale="s">
+              <calcite-segmented-control-item value="pop" checked>人口</calcite-segmented-control-item>
+              <calcite-segmented-control-item value="urban">城镇化率</calcite-segmented-control-item>
+            </calcite-segmented-control>
+          </div>
+
+          <div id="topRank" class="rank-list"></div>
+        </div>
+      </calcite-panel>
+
+      <!-- 工具面板 -->
+      <calcite-panel heading="实用工具（Tools）" data-panel="panel-tools" hidden>
+        <div class="panel-pad">
+          <div class="section-title">量测</div>
+          <div class="btn-row">
+            <calcite-button id="measureLineBtn" appearance="outline" scale="s" icon-start="measure">距离</calcite-button>
+            <calcite-button id="measureAreaBtn" appearance="outline" scale="s" icon-start="measure-area">面积</calcite-button>
+            <calcite-button id="measureClearBtn" appearance="outline" scale="s" icon-start="trash">清除</calcite-button>
+          </div>
+          <div id="measureDiv" class="measure-host"></div>
+
+          <calcite-divider></calcite-divider>
+
+          <div class="section-title">视图</div>
+          <div class="btn-row">
+            <calcite-button id="goHomeBtn" appearance="outline" scale="s" icon-start="home">回到默认</calcite-button>
+            <calcite-button id="zoomInBtn" appearance="outline" scale="s" icon-start="plus">放大</calcite-button>
+            <calcite-button id="zoomOutBtn" appearance="outline" scale="s" icon-start="minus">缩小</calcite-button>
+          </div>
+
+          <calcite-divider></calcite-divider>
+
+          <div class="section-title">导出</div>
+          <calcite-button id="exportPngBtn" appearance="solid" width="full" icon-start="download">导出地图为 PNG</calcite-button>
+        </div>
+      </calcite-panel>
+
+      <div class="panel-footer">
+        <calcite-button id="collapsePanelBtn" appearance="outline" width="full" icon-start="chevron-left">
+          折叠侧栏（扩大地图）
+        </calcite-button>
+      </div>
+    </calcite-shell-panel>
+
+    <!-- 区域2：地图 -->
+    <div id="viewDiv"></div>
+    <div class="map-hud" id="coordDiv">Lon: -- , Lat: --</div>
+
+    <div class="loading" id="loading">
+      <div class="loading-card">
+        <div class="loading-title">正在加载 WebMap…</div>
+        <div class="loading-sub">若不出图：检查 WebMap/图层是否共享为 Everyone（公开）。</div>
+      </div>
+    </div>
+
+    <calcite-modal id="aboutModal" heading="实验说明 / 作业对照" width="m">
+      <div slot="content" class="modal-body">
+        <h3>1. 项目名称</h3>
+        <p>2020年中国各省常住人口与城镇化水平空间可视化系统</p>
+
+        <h3>2. 数据来源</h3>
+        <ul>
+          <li>GeoScene Online WebMap：<span class="mono">5d6e5d9225294277b6317dea60beab2e</span></li>
+          <li>字段：<span class="mono">SUM_2020</span> 常住人口；<span class="mono">2020_城</span> 城镇化率</li>
+        </ul>
+
+        <h3>3. 实验要求对照</h3>
+        <ul>
+          <li>三大区域：页眉 / 地图区 / 底图库与图层区（左侧面板）</li>
+          <li>地图显示：底图 + GeoScene Online 专题内容</li>
+          <li>控件：BasemapGallery、LayerList、Legend、Search、ScaleBar</li>
+        </ul>
+
+        <h3>4. 实用功能</h3>
+        <ul>
+          <li>数据概览（总人口/平均城镇化）、Top10 排行、快速定位省份</li>
+          <li>量测工具（距离/面积）</li>
+          <li>地图截图/导出 PNG</li>
+          <li><b>重置</b>：一键恢复默认状态（回到默认视图、清除量测、收起侧栏并回到默认面板）</li>
+        </ul>
+
+        <h3>5. 部署与提交</h3>
+        <p>部署到 GitHub/Gitee Pages，提交 URL + 截图（含页眉、地图、侧栏控件）。</p>
+      </div>
+
+      <calcite-button slot="primary" appearance="solid" width="full" id="closeAbout">关闭</calcite-button>
+    </calcite-modal>
+
+  </calcite-shell>
+</body>
+</html>
