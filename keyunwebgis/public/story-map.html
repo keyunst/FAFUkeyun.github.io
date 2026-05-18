@@ -334,7 +334,7 @@ main{position:fixed;top:70px;left:0;right:0;bottom:0;display:flex}
     <div class="particle-field" id="particleField"></div>
     <div class="intro-main-title">
         <div id="intro-title">🚞 中国铁路百年扩张史 🚄</div>
-        <div class="sub-quote">1876 · 吴淞铁路 | 2024 · 八纵八横</div>
+        <div class="sub-quote">1876 · 吴淞铁路 | 2024 · 百年征程·日行千里</div>
     </div>
     <div id="intro-rail-container">
         <div id="intro-rail-line"></div>
@@ -429,7 +429,7 @@ fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json')
   .catch(()=>{ L.polyline([[53.5,123.0],[50.5,130.0],[48.5,135.0],[46.5,134.0],[44.5,131.0],[42.0,129.0],[41.0,125.5],[42.5,123.0],[44.5,118.0],[47.5,117.0],[48.5,115.0],[50.5,108.0],[49.0,100.0],[48.0,96.0],[47.5,90.0],[49.5,84.0],[46.0,83.0],[41.0,79.0],[39.0,74.0],[35.0,78.5],[30.5,80.0],[27.5,85.0],[28.0,90.0],[28.0,96.0],[26.0,99.0],[23.0,99.0],[21.5,101.5],[21.5,103.0],[22.5,106.5],[23.2,105.0],[21.5,107.0],[22.0,109.0],[23.5,113.5],[24.0,115.5],[26.5,119.5],[30.0,121.5],[35.0,120.5],[38.0,119.0],[40.0,119.0],[42.0,122.0],[45.0,126.0],[49.0,127.0],[53.5,123.0]],{color:'#1A237E',weight:2.5,opacity:.65,dashArray:'10,6'}).addTo(map); });
 railwayLines.forEach(r=>{const p=L.polyline(r.coordinates,{color:r.color,weight:5,opacity:.85,smoothFactor:2,lineCap:'round',lineJoin:'round'}).addTo(map);p.bindPopup('<b>🚄 '+r.name+'</b><br>通车年份：'+r.year);railwayLayers[r.name]=p});
 const wusongRailway=L.polyline([[31.2304,121.4737],[31.28,121.50],[31.33,121.50],[31.38,121.49]],{color:'#C0392B',weight:4,opacity:.7,dashArray:'8,6',smoothFactor:1}).addTo(map);railwayLayers.wuSong=wusongRailway;
-const videoPaths={wusong:'videos/wusong.mp4',jingzhang:'videos/jingzhang.mp4',qingzang:'videos/qingzang.mp4',bainian:'videos/bainian.mp4'};
+const videoPaths={wusong:'wusong.mp4',jingzhang:'jingzhang.mp4',qingzang:'qingzang.mp4',bainian:'bainian.mp4'};
 function openVideo(k){const v=videoPaths[k];if(!v)return;const wrapper=document.createElement('div');wrapper.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;backdrop-filter:blur(10px);font-family:"Segoe UI","PingFang SC",sans-serif';
 const card=document.createElement('div');card.style.cssText='position:relative;background:linear-gradient(135deg,#1a1f2e,#0f1419);border:2px solid #00CCFF;border-radius:16px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.8),0 0 40px rgba(0,200,255,.25);max-width:90vw';
 const close=document.createElement('button');close.innerHTML='✕';close.style.cssText='position:absolute;top:-15px;right:-15px;width:36px;height:36px;background:linear-gradient(135deg,#0088CC,#00CCFF);color:#fff;border:2px solid #fff;border-radius:50%;cursor:pointer;font-weight:900;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:10;box-shadow:0 4px 15px rgba(0,200,255,.4);transition:all .3s';close.onmouseover=()=>{close.style.transform='scale(1.1)';close.style.boxShadow='0 6px 20px rgba(0,200,255,.6)'};close.onmouseout=()=>{close.style.transform='scale(1)';close.style.boxShadow='0 4px 15px rgba(255,107,53,.6)'};
