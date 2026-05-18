@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>中国铁路百年发展史 - 故事地图</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI','PingFang SC',sans-serif;background:#f5f0e8;color:#3a3028;overflow:hidden}
+header{position:fixed;top:0;left:0;right:0;height:70px;background:linear-gradient(135deg,#fffdf8,#f5efe0);border-bottom:2px solid #C9A96E;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 2rem;box-shadow:0 2px 15px rgba(0,0,0,.08)}
+header h1{font-size:1.9rem;font-weight:900;background:linear-gradient(135deg,#B8860B,#C9A96E,#D4A84B);-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:flex;align-items:center;gap:.75rem;letter-spacing:1px}
+header .subtitle{font-size:.95rem;color:#8a7560;letter-spacing:.5px}
+main{position:fixed;top:70px;left:0;right:0;bottom:0;display:flex}
+#map-container{flex:1;position:relative;background:#000;border-right:1.5px solid rgba(201,169,110,.12);overflow:hidden}
+#map{width:100%;height:100%}
+#story-panel{position:relative;width:380px;background:linear-gradient(180deg,#fffdf8,#f5f0e8);border-left:2px solid rgba(201,169,110,.25);display:flex;flex-direction:column;overflow:hidden;box-shadow:-6px 0 25px rgba(0,0,0,.08);transition:width .4s ease}
+#story-panel.collapsed{width:36px;min-width:36px;border-left:1.5px solid rgba(201,169,110,.4)}
+#story-panel.collapsed .story-header,#story-panel.collapsed .story-content,#story-panel.collapsed .story-footer{display:none}
+.story-header{padding:1.75rem;border-bottom:1.5px solid rgba(201,169,110,.25);background:rgba(201,169,110,.08)}
+.story-header h2{font-size:1.8rem;font-weight:950;background:linear-gradient(135deg,#B8860B,#C9A96E,#D4A84B);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.8rem;letter-spacing:1.5px;text-shadow:0 0 20px rgba(201,169,110,.15)}
+.chapter-time{font-size:.95rem;color:#8a7560;display:flex;align-items:center;gap:.6rem;font-weight:600;letter-spacing:.5px}
+.story-content{flex:1;overflow-y:auto;padding:1.75rem;scroll-behavior:smooth;color:#3a3028}
+.story-content::-webkit-scrollbar{width:2px}
+.story-content::-webkit-scrollbar-thumb{background:rgba(201,169,110,.25);border-radius:1px}
+.story-image{width:100%;height:160px;border-radius:.75rem;overflow:hidden;margin-bottom:1.2rem;border:2px solid rgba(201,169,110,.25);box-shadow:0 4px 15px rgba(0,0,0,.4);background-size:cover;background-position:center}
+.story-image img{width:100%;height:100%;object-fit:cover;display:block}
+.story-text{line-height:2;color:#2e2418;font-size:1.12rem;margin-bottom:1.8rem;letter-spacing:.5px;font-family:'Georgia','PingFang SC',serif}
+.story-text p{margin-bottom:1.4rem;text-align:justify;font-size:1.12rem;color:#2e2418;font-weight:500}
+.story-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.8rem}
+.stat-item{background:linear-gradient(135deg,rgba(201,169,110,.15),rgba(180,140,80,.08));border:1.5px solid rgba(201,169,110,.35);border-radius:.85rem;padding:1.2rem .8rem;text-align:center;transition:all .3s}
+.stat-item:hover{border-color:#C9A96E;box-shadow:0 0 20px rgba(201,169,110,.4);transform:translateY(-2px)}
+.stat-value{font-size:2rem;font-weight:950;background:linear-gradient(135deg,#B8860B,#C9A96E);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.8rem;letter-spacing:1.5px}
+.stat-label{font-size:.85rem;color:#8a7560;text-transform:uppercase;letter-spacing:1.5px;font-weight:700}
+.story-actions{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1.8rem}
+.action-btn{padding:.9rem 1.3rem;background:rgba(201,169,110,.12);border:1.5px solid rgba(201,169,110,.3);color:#5a4a30;border-radius:.7rem;cursor:pointer;transition:all .3s;font-size:1rem;display:flex;align-items:center;justify-content:center;gap:.6rem;font-weight:800;letter-spacing:.8px}
+.action-btn:hover:not(:disabled){border-color:#B8860B;background:rgba(201,169,110,.22);color:#3a2a18;transform:translateY(-2px);box-shadow:0 5px 15px rgba(201,169,110,.3)}
+.action-btn.primary{background:#B8860B;border-color:#C9A96E;color:#fff}
+.action-btn.primary:hover:not(:disabled){background:#C9A96E;border-color:#D4A84B;box-shadow:0 8px 20px rgba(201,169,110,.5)}
+.action-btn:disabled{opacity:.4;cursor:not-allowed}
+.story-footer{padding:1.5rem;border-top:1.5px solid rgba(201,169,110,.2);background:rgba(201,169,110,.05)}
+.source{font-size:.8rem;color:#8a7560;display:flex;align-items:center;gap:.6rem;font-weight:600;letter-spacing:.4px}
+#map-controls{position:absolute;top:1.5rem;right:1.5rem;z-index:1000;display:flex;flex-direction:column;gap:.75rem;pointer-events:auto}
+.control-btn{width:55px;height:55px;background:linear-gradient(135deg,rgba(255,255,255,.95),rgba(245,240,232,.92));backdrop-filter:blur(20px);border:1.5px solid rgba(201,169,110,.35);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .3s;font-size:1.4rem;color:#5a4a30;box-shadow:0 4px 15px rgba(0,0,0,.1)}
+.control-btn:hover{border-color:#D4A84B;transform:scale(1.15);box-shadow:0 0 30px rgba(201,169,110,.5)}
+.control-btn.active{background:linear-gradient(135deg,#B8860B,#C9A96E);border-color:#D4A84B;color:#fff;box-shadow:0 0 30px rgba(201,169,110,.5)}
+#layer-panel{position:absolute;top:1.5rem;right:70px;background:linear-gradient(135deg,rgba(255,255,255,.98),rgba(245,240,232,.95));backdrop-filter:blur(20px);border:1.5px solid rgba(201,169,110,.3);border-radius:1.2rem;padding:1.75rem;width:250px;box-shadow:0 10px 40px rgba(0,0,0,.12);z-index:999;transition:all .3s;max-height:70vh;overflow-y:auto}
+#layer-panel.hidden{opacity:0;pointer-events:none;transform:translateX(10px)}
+.layer-title{font-size:1.05rem;font-weight:800;color:#B8860B;margin-bottom:1.2rem;display:flex;align-items:center;gap:.6rem;border-bottom:1.5px solid rgba(201,169,110,.3);padding-bottom:1rem}
+.layer-item{display:flex;align-items:center;justify-content:space-between;padding:.85rem;margin-bottom:.7rem;background:rgba(201,169,110,.05);border-radius:.7rem;cursor:pointer;border:1px solid rgba(201,169,110,.2)}
+.layer-item:hover{background:rgba(201,169,110,.1);border-color:rgba(201,169,110,.4)}
+.toggle-switch{width:44px;height:24px;background:rgba(180,150,120,.2);border-radius:12px;position:relative;transition:background .3s}
+.toggle-switch.active{background:#B8860B}
+.toggle-slider{width:20px;height:20px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:transform .3s}
+.toggle-switch.active .toggle-slider{transform:translateX(20px)}
+#timeline-wrapper{position:absolute;bottom:1rem;left:1rem;right:1rem;z-index:999;display:flex;flex-direction:column;gap:10px}
+#timeline-progress{width:100%;height:5px;background:rgba(180,160,140,.2);border-radius:3px;overflow:hidden}
+#timeline-progress-bar{height:100%;background:linear-gradient(90deg,#8B6914,#D4A84B);border-radius:3px;transition:width .5s ease;box-shadow:0 0 12px rgba(201,169,110,.5)}
+#timeline{position:relative;height:90px;background:linear-gradient(180deg,#fffdf8,#f5f0e8);backdrop-filter:blur(20px);border:1.5px solid rgba(201,169,110,.25);border-radius:18px;display:flex;align-items:center;justify-content:space-evenly;overflow-x:auto;padding:0 1.5rem;scroll-behavior:smooth;pointer-events:auto;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+#timeline::-webkit-scrollbar{height:2px}
+#timeline::-webkit-scrollbar-thumb{background:rgba(201,169,110,.4);border-radius:1px}
+#timeline::before{content:'';position:absolute;top:26px;left:8%;right:8%;height:2px;background:linear-gradient(90deg,transparent,rgba(201,169,110,.3),transparent);pointer-events:none;z-index:1}
+.timeline-item{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;transition:all .35s;position:relative;flex:1;min-width:55px;max-width:160px}
+.timeline-dot-circle{width:18px;height:18px;border-radius:50%;background:rgba(201,169,110,.12);border:2px solid rgba(201,169,110,.3);transition:all .35s;position:relative;z-index:2}
+.timeline-dot-circle::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:8px;height:8px;border-radius:50%;background:transparent;transition:all .35s}
+.timeline-item:hover .timeline-dot-circle{background:rgba(201,169,110,.4);border-color:#C9A96E;box-shadow:0 0 12px rgba(201,169,110,.5);transform:scale(1.2)}
+.timeline-item.active .timeline-dot-circle{background:#C9A96E;border-color:#B8860B;box-shadow:0 0 25px rgba(201,169,110,.6);transform:scale(1.3)}
+.timeline-item.active .timeline-dot-circle::after{background:#fff}
+.timeline-label{font-size:.82rem;color:rgba(140,120,90,.4);font-weight:700;letter-spacing:1px;transition:all .35s;white-space:nowrap;text-align:center;text-transform:uppercase}
+.timeline-item:hover .timeline-label{color:rgba(100,80,50,.85)}
+.timeline-item.active .timeline-label{color:#B8860B;font-weight:900;font-size:.95rem;text-shadow:0 0 8px rgba(201,169,110,.4)}
+.timeline-year{font-size:.72rem;color:rgba(140,120,90,.35);font-weight:600;letter-spacing:2px;transition:all .35s;white-space:nowrap;font-family:'Georgia','Courier New',monospace}
+.timeline-item:hover .timeline-year{color:rgba(100,80,50,.6)}
+.timeline-item.active .timeline-year{color:#B8860B;font-weight:800;font-size:.78rem;text-shadow:0 0 6px rgba(201,169,110,.3)}
+@keyframes pulse{0%,100%{opacity:.6;transform:translateY(0)}50%{opacity:1;transform:translateY(4px)}}
+@keyframes highlight-pulse{0%,100%{stroke-width:5;opacity:1}50%{stroke-width:8;opacity:.7}}
+.highlighted-railway{animation:highlight-pulse 1.5s infinite!important}
+.train-icon{width:60px;height:60px;text-align:center;line-height:60px;font-size:42px;filter:drop-shadow(0 0 16px rgba(201,169,110,.8)) drop-shadow(0 0 30px rgba(240,215,140,.5));transform:translate(-50%,-50%)}
+.compare-mode #map-container{overflow:hidden}
+.compare-mode #map{width:50%;float:left;border-right:3px solid #C9A96E}
+#map-right{display:none;width:50%;height:100%;float:right;position:absolute;top:0;right:0;z-index:99}
+.compare-mode #map-right{display:block}
+#compare-divider{display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:1005;background:rgba(0,0,0,.85);color:#F0D78C;padding:5px 14px;border-radius:15px;font-weight:900;font-size:.8rem;border:2px solid #C9A96E;pointer-events:none}
+.compare-mode #compare-divider{display:block}
+#compare-label-l,#compare-label-r{display:none;position:absolute;top:10px;z-index:1005;background:rgba(0,0,0,.8);color:#F0D78C;padding:4px 12px;border-radius:10px;font-weight:800;font-size:.75rem;pointer-events:none}
+.compare-mode #compare-label-l{display:block;left:10px}
+.compare-mode #compare-label-r{display:block;right:10px}
+@media(max-width:768px){header h1{font-size:1.2rem}header .subtitle{display:none}#story-panel{width:280px}#map-controls{flex-direction:row;bottom:70px;right:1.5rem;top:auto}}
+
+/* ========== 全新精致开场动画 ========== */
+#intro-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 30% 20%, #0a0806, #1a1510);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    transition: opacity 1.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+    font-family: 'Georgia', 'Noto Serif SC', 'STSong', serif;
+    overflow: hidden;
+}
+#intro-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+/* 动态铁轨背景 */
+.rail-bg {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 120px;
+    background: repeating-linear-gradient(90deg, 
+        rgba(201,169,110,0.2) 0px, 
+        rgba(201,169,110,0.2) 4px,
+        transparent 4px,
+        transparent 40px);
+    background-size: 40px 100%;
+    pointer-events: none;
+    z-index: 1;
+}
+.rail-bg::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(201,169,110,0.5), #C9A96E, rgba(201,169,110,0.5));
+    box-shadow: 0 20px 0 rgba(201,169,110,0.3);
+}
+.rail-bg::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(201,169,110,0.5), #C9A96E, rgba(201,169,110,0.5));
+}
+/* 移动的蒸汽火车头 */
+.train-moving {
+    position: absolute;
+    bottom: 30px;
+    left: -15%;
+    font-size: 70px;
+    filter: drop-shadow(0 8px 20px rgba(0,0,0,0.6)) drop-shadow(0 0 15px rgba(201,169,110,0.8));
+    z-index: 3;
+    animation: trainDrive 4s ease-in-out forwards;
+    pointer-events: none;
+}
+@keyframes trainDrive {
+    0% { left: -20%; transform: scaleX(1);}
+    60% { left: 65%; transform: scaleX(1);}
+    100% { left: 120%; transform: scaleX(1);}
+}
+/* 光晕粒子 */
+.particle-field {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2;
+}
+.particle {
+    position: absolute;
+    background: rgba(255,215,140,0.6);
+    border-radius: 50%;
+    box-shadow: 0 0 10px #FFD700;
+    animation: floatParticle 3s infinite alternate;
+}
+@keyframes floatParticle {
+    0% { transform: translateY(0px) scale(1); opacity: 0.2;}
+    100% { transform: translateY(-40px) scale(1.2); opacity: 0.8;}
+}
+/* 主标题区域 */
+.intro-main-title {
+    text-align: center;
+    z-index: 10;
+    margin-bottom: 2rem;
+}
+#intro-title {
+    font-size: 2.3rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, #E8C572, #C9A96E, #F5D98F);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 30px rgba(201,169,110,0.5);
+    letter-spacing: 4px;
+    margin-bottom: 1rem;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: titleGlow 0.8s forwards 0.3s;
+    white-space: nowrap;
+}
+@keyframes titleGlow {
+    to { opacity: 1; transform: translateY(0); text-shadow: 0 0 20px rgba(201,169,110,0.8);}
+}
+.sub-quote {
+    font-size: 0.9rem;
+    color: rgba(230,200,150,0.8);
+    letter-spacing: 2px;
+    font-weight: 400;
+    border-top: 1px solid rgba(201,169,110,0.5);
+    display: inline-block;
+    padding-top: 0.6rem;
+    margin-top: 0.5rem;
+    opacity: 0;
+    animation: fadeUp 1s forwards 0.6s;
+}
+@keyframes fadeUp {
+    to { opacity: 1; transform: translateY(0);}
+    from { opacity: 0; transform: translateY(15px);}
+}
+/* 铁轨延伸动画容器 */
+#intro-rail-container {
+    position: relative;
+    width: 70%;
+    max-width: 550px;
+    height: 6px;
+    background: rgba(60,45,30,0.5);
+    border-radius: 3px;
+    overflow: visible;
+    margin: 2.5rem 0;
+    z-index: 10;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+}
+#intro-rail-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #FFD966, #C9A96E, #E8B85A);
+    border-radius: 3px;
+    transition: width 1.6s cubic-bezier(0.34, 1.2, 0.64, 1);
+    box-shadow: 0 0 18px rgba(201,169,110,0.8);
+}
+.rail-spark {
+    position: absolute;
+    top: -4px;
+    right: 0;
+    width: 8px;
+    height: 14px;
+    background: radial-gradient(circle, #FFE484, #FFA500);
+    border-radius: 50%;
+    filter: blur(2px);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+/* 里程数据闪出 */
+.mile-stone {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    margin-top: 1.2rem;
+    z-index: 10;
+    opacity: 0;
+    animation: fadeUp 0.8s forwards 1.2s;
+}
+.mile-item {
+    text-align: center;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(6px);
+    padding: 0.5rem 1.2rem;
+    border-radius: 40px;
+    border: 1px solid rgba(201,169,110,0.5);
+}
+.mile-number {
+    font-size: 1.4rem;
+    font-weight: 900;
+    color: #FFD966;
+    font-family: monospace;
+}
+.mile-label {
+    font-size: 0.7rem;
+    color: #C9A96E;
+    letter-spacing: 1px;
+}
+/* 打字机字幕 */
+#intro-subtitle {
+    font-size: 1.2rem;
+    color: #E8C572;
+    letter-spacing: 1px;
+    font-weight: 500;
+    margin-top: 1.8rem;
+    text-align: center;
+    min-height: 3rem;
+    opacity: 0;
+    transition: opacity 0.6s;
+    z-index: 10;
+    text-shadow: 0 0 8px rgba(0,0,0,0.5);
+}
+#intro-subtitle.show {
+    opacity: 1;
+}
+.intro-char {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(6px);
+    animation: charReveal 0.08s forwards;
+    font-weight: 600;
+}
+@keyframes charReveal {
+    to { opacity: 1; transform: translateY(0);}
+}
+/* 底部年份装饰 */
+.era-stamp {
+    position: absolute;
+    bottom: 20px;
+    right: 30px;
+    font-size: 0.75rem;
+    color: rgba(201,169,110,0.4);
+    font-family: monospace;
+    z-index: 10;
+    letter-spacing: 2px;
+}
+</style>
+</head>
+<body>
+<!-- 全新开场动画层 -->
+<div id="intro-overlay">
+    <div class="rail-bg"></div>
+    <div class="train-moving">🚂💨</div>
+    <div class="particle-field" id="particleField"></div>
+    <div class="intro-main-title">
+        <div id="intro-title">🚞 中国铁路百年扩张史 🚄</div>
+        <div class="sub-quote">1876 · 吴淞铁路 | 2024 · 八纵八横</div>
+    </div>
+    <div id="intro-rail-container">
+        <div id="intro-rail-line"></div>
+        <div class="rail-spark" id="railSpark"></div>
+    </div>
+    <div class="mile-stone">
+        <div class="mile-item"><div class="mile-number">14.5 km</div><div class="mile-label">第一条铁路</div></div>
+        <div class="mile-item"><div class="mile-number">15.9 万 km</div><div class="mile-label">总里程</div></div>
+        <div class="mile-item"><div class="mile-number">4.5 万 km</div><div class="mile-label">高铁里程</div></div>
+    </div>
+    <div id="intro-subtitle"></div>
+    <div class="era-stamp">1876 → 2024 · 百年跨越</div>
+</div>
+
+<header><h1><i class="fas fa-train"></i> 中国铁路百年发展史</h1><div class="subtitle">1876 - 2024 · 从屈辱到崛起的148年</div></header>
+<main>
+<div id="map-container"><div id="map"></div><div id="map-right"></div><div id="compare-divider">🔍 时光对比</div><div id="compare-label-l"></div><div id="compare-label-r"></div>
+<div id="map-controls"><div class="control-btn" id="resetBtn" title="重置视角">🎯</div><div class="control-btn" id="layerToggleBtn" title="图层控制">📋</div><div class="control-btn" id="compareBtn" title="时光双向对比">↔️</div><div class="control-btn" id="mapLayerBtn" title="切换地图底图">🏛️</div><div class="control-btn" id="autoPlayBtn" title="自动播放">▶️</div></div>
+<div id="layer-panel" class="hidden"><div class="layer-title"><i class="fas fa-layer-group"></i> 铁路线路</div><div id="layer-list"></div></div>
+<div id="timeline-wrapper"><div id="timeline-progress"><div id="timeline-progress-bar" style="width:0%"></div></div><div id="timeline"></div></div>
+</div>
+<div id="story-panel"><div id="sidebar-collapse-btn" style="position:absolute;left:-18px;top:50%;transform:translateY(-50%);width:36px;height:36px;background:linear-gradient(135deg,#0088CC,#00CCFF);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:101;font-size:1.2rem;color:#fff;box-shadow:0 4px 15px rgba(0,200,255,.4);border:2px solid #fff" title="收起/展开侧边栏">◀</div>
+<div class="story-header"><h2 id="chapter-title">加载中...</h2><div class="chapter-time" id="chapter-time"><i class="far fa-calendar"></i> 时间</div></div>
+<div class="story-content" id="story-scroll"><div class="story-image" id="story-image"><img id="chapter-img" src="" alt=""></div><div class="story-text" id="story-text">加载中...</div><div class="story-stats" id="story-stats"></div><div class="story-actions" style="display:none"><button id="prev-btn" class="action-btn"><i class="fas fa-arrow-left"></i> 上一章</button><button id="next-btn" class="action-btn primary">下一章 <i class="fas fa-arrow-right"></i></button></div></div>
+<div class="story-footer"><div class="source"><i class="fas fa-database"></i> 数据来源：国铁集团、国家统计局</div></div></div>
+</main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// 完整保留第二个HTML的所有数据、配置、函数（不做任何改动）
+const imgs=['images/wusong-railway.jpg','images/wusong-railway.jpg','images/jingzhang-railway.jpg','images/chengyu-railway.jpg','images/qingzang-railway.jpg','images/highspeed-network.jpg','images/zhonglao-railway.jpg','images/zhongou-train.jpg','images/modern-highspeed.jpg'];
+const fallbackBgs=['linear-gradient(135deg,#2c1810,#3e1a0e)','linear-gradient(135deg,#2c1810,#3e1a0e)','linear-gradient(135deg,#1a2f1a,#2E7D32)','linear-gradient(135deg,#1a1a3e,#4A148C)','linear-gradient(135deg,#0d1b2a,#1565C0)','linear-gradient(135deg,#2a1a00,#FF6B35)','linear-gradient(135deg,#002a2a,#00BCD4)','linear-gradient(135deg,#1a002a,#9C27B0)','linear-gradient(135deg,#1a1a0a,#FFD700)'];
+
+const chapters=[{id:'intro',title:'🚂 铁路之梦的开端',subtitle:'1876年 · 上海吴淞',year:'1876',description:'你能想象吗？中国第一条铁路——吴淞铁路，通车仅1年就被清政府花巨款买回，全部拆毁扔入海中。14.5公里的铁轨，蒸汽机车的轰鸣，为何让一个古老帝国如此恐惧？',camera:{center:[31.38,121.49],zoom:13},stats:[{v:'14.5',l:'公里'},{v:'1条',l:'初始铁路'},{v:'拆毁',l:'命运'}],hlLine:null,hlCity:'上海',soloLines:['wuSong']},{id:'beginning-1',title:'📍 第一条铁路的诞生',subtitle:'1876年 · 上海吴淞',year:'1876',description:'蒸汽机车轰隆隆驶过田野——农民惊恐，朝廷反对。28.5万两白银买回的，不是铁路，是恐惧。这条被拆毁的铁轨，本该开启中国工业化，却成了闭关锁国的注脚。但也许，正是这次拆毁，埋下了百年后逆袭的种子。',camera:{center:[31.38,121.49],zoom:12},stats:[{v:'14.5',l:'公里'},{v:'1年',l:'运营期'},{v:'拆毁',l:'结局'}],hlLine:null,hlCity:'上海',soloLines:['wuSong']},{id:'beginning-2',title:'🏔️ 詹天佑的奇迹',subtitle:'1909年 · 京张铁路',year:'1909',description:'外国人嘲笑："中国能修京张铁路的工程师还没出生。"33年后，詹天佑用"人"字形设计征服八达岭。201公里，翻越崇山峻岭——不是用蛮力，而是用智慧。一个没有留洋背景的中国工程师，凭什么让世界闭嘴？',camera:{center:[40.452,115.8],zoom:9},stats:[{v:'201',l:'公里'},{v:'"人"字形',l:'创新'},{v:'世界级',l:'水准'}],hlLine:'京张铁路',hlCity:'北京',soloLines:['wuSong','京张铁路']},{id:'development-1',title:'🏗️ 新中国的第一路',subtitle:'1952年 · 成渝铁路',year:'1952',description:'没有大型机械，没有专业设备——30万军民，用双手、铁锹和肩膀，在崇山峻岭间凿出505公里。仅用2年！对比76年前那条被拆毁的14.5公里吴淞铁路，新中国用30万人的汗水，宣告了一个时代的分水岭。',camera:{center:[30.05,104.55],zoom:7.5},stats:[{v:'505',l:'公里'},{v:'30万',l:'参建者'},{v:'2年',l:'完工期'}],hlLine:'成渝铁路',hlCity:'成都',soloLines:['wuSong','京张铁路','成渝铁路']},{id:'development-3',title:'🌌 通往世界屋脊',subtitle:'2006年 · 青藏铁路',year:'2006',description:'4500米海拔、-40°C严寒、550公里冻土——外国专家断言："不可能。"但中国做到了。供氧列车穿越唐古拉山口，藏族阿妈第一次看见火车驶过家门口。天路不是神话，是中国人用半个世纪的论证换来的。这条铁路，改变了高原的命运。',camera:{center:[31.5,91.0],zoom:6},stats:[{v:'4500米',l:'平均海拔'},{v:'550公里',l:'冻土区'},{v:'世界之最',l:'成就'}],hlLine:'青藏铁路',hlCity:'拉萨',soloLines:['wuSong','京张铁路','成渝铁路','青藏铁路']},{id:'climax-1',title:'🕸️ 八纵八横',subtitle:'2020年 · 高铁网络成型',year:'2020',description:'3.8万公里高铁，占全球2/3。16条国家级大通道——八纵八横——如血管般铺满神州大地。从北京到上海只需4小时，古人的"千里江陵一日还"成了日常。此时回看1876年被拆毁的吴淞铁路，恍如隔世。这不仅仅是一张网——这是中国速度的骨架。',camera:{center:[34.26,110.19],zoom:5},stats:[{v:'3.8万',l:'公里高铁'},{v:'2/3',l:'全球占比'},{v:'16条',l:'国家级大通道'}],hlLine:null,hlCity:null,soloLines:['wuSong','京沪高铁','京广高铁','京哈铁路','沿海通道','京港通道','呼南通道','京昆通道','包海通道','兰广通道','沪昆高铁','陆桥通道','沿江通道','广昆通道','厦渝通道','青银通道','京兰通道','绥满通道','京张铁路','青藏铁路','成渝铁路','陇海线']},{id:'ending-1',title:'🌏 走出国门',subtitle:'2021年 · 中老铁路',year:'2021',description:'2021年12月3日，中老铁路通车。从昆明到万象，1035公里。老挝首条现代化铁路，167座隧道+301座桥梁，"陆锁国"变"陆联国"。中国铁路标准首次完整输出。',camera:{center:[20,102.5],zoom:7},stats:[{v:'1035',l:'公里'},{v:'167座',l:'隧道数'},{v:'陆联国',l:'成就'}],hlLine:'中老铁路',hlCity:'昆明',soloLines:['中老铁路']},{id:'ending-2',title:'🌐 钢铁丝绸之路',subtitle:'2024年 · 中欧班列',year:'2024',description:'截至2024年，中欧班列开行超8万列，连接中国200+城市与欧洲25国217城。经新疆出境，穿越哈萨克斯坦、俄罗斯、波兰抵达德国。古丝路，钢铁重生。',camera:{center:[52,60],zoom:3.5},stats:[{v:'8万+',l:'班列总数'},{v:'200+城',l:'中国城市'},{v:'217城',l:'欧洲城市'}],hlLine:'中欧班列·北线',hlCity:'西安',soloLines:['中欧班列·北线','中欧班列·南线','陇海线']},{id:'conclusion',title:'🎯 百年征程，日行千里',subtitle:'1876-2024',year:'2024',description:'时至2024年，15.9万里铁路织密华夏脉络，4.5万里高铁坐拥全球七成规模。八纵八横十六大通道铺展国土，二十一条高铁干线畅行全域，多条跨境铁路连通亚欧诸国，北抵草原、南达南洋、西通中亚远至鹿特丹。历经一百四十八载岁月浮沉，从满目疮痍走向世界顶尖，中国铁路书写下从追赶到领跑的旷世传奇。',camera:{center:[42.0,90.0],zoom:3.5},stats:[{v:'15.9万',l:'公里铁路'},{v:'4.5万',l:'公里高铁'},{v:'全球第一',l:'地位'}],hlLine:null,hlCity:null,soloLines:['京沪高铁','京广高铁','沪昆高铁','京哈铁路','哈大高铁','沿海通道','京港通道','呼南通道','京昆通道','包海通道','兰广通道','陆桥通道','沿江通道','广昆通道','厦渝通道','青银通道','京兰通道','绥满通道','青藏铁路','成渝铁路','京张铁路','兰新高铁','贵广高铁','西成高铁','南广高铁','合福高铁','济青高铁','成贵高铁','郑西高铁','兰渝铁路','徐兰高铁','沪宁城际','京津城际','大西高铁','成渝高铁','广深港高铁','昌赣深高铁','郑渝高铁','银西高铁','商合杭高铁','中老铁路','中泰铁路','中缅铁路','中越铁路','中蒙铁路','中巴铁路','中吉乌铁路','新亚欧大陆桥','俄罗斯远东线','中欧班列·北线','中欧班列·南线','陇海线','雅万高铁']}];
+
+let _acc=[];chapters.forEach(ch=>{_acc=[...new Set([..._acc,...ch.soloLines])];ch.soloLines=_acc});
+const railwayLines=[
+{name:'京沪高铁',year:2011,color:'#FF6B35',labelCoords:[34.562,117.41],coordinates:[[39.9042,116.4074],[39.85,116.58],[39.728,116.752],[39.52,116.92],[39.1422,117.2008],[38.92,117.32],[38.304,117.113],[38.08,117.38],[37.434,118.015],[37.02,117.85],[36.651,117.12],[36.42,117.28],[36.12,117.05],[35.92,116.95],[35.581,116.98],[35.32,117.18],[34.856,117.152],[34.72,117.32],[34.562,117.41],[34.305,117.52],[33.92,117.42],[33.362,117.365],[33.042,117.359],[32.72,117.65],[32.31,117.68],[32.251,118.312],[32.06,118.797],[32.042,119.425],[31.915,119.582],[31.82,119.85],[31.781,119.973],[31.571,120.362],[31.326,120.623],[31.275,120.982],[31.23,121.474]]},
+{name:'京广高铁',year:2012,color:'#F7931E',labelCoords:[31.215,114.132],coordinates:[[39.9042,116.4074],[39.85,116.22],[39.532,116.128],[39.22,115.95],[38.852,115.823],[38.52,115.52],[38.043,114.515],[37.85,114.62],[37.732,114.482],[37.42,114.38],[37.065,114.503],[36.82,114.55],[36.628,114.492],[36.35,114.28],[36.095,114.378],[35.62,113.98],[35.312,113.925],[35.178,113.882],[34.92,113.8],[34.798,113.726],[34.35,113.65],[34.032,113.675],[33.82,113.75],[33.742,113.852],[33.32,113.98],[33.012,114.028],[32.52,113.88],[32.132,114.065],[31.852,114.218],[31.52,114.15],[31.215,114.132],[30.82,114.35],[30.611,114.426],[30.32,114.38],[30.182,114.215],[29.82,113.95],[29.452,113.932],[29.282,113.125],[28.72,112.98],[28.228,112.939],[27.852,112.918],[27.52,112.8],[26.892,112.618],[26.52,112.63],[26.232,112.615],[26.02,112.82],[25.812,113.032],[25.52,113.15],[25.332,113.215],[24.52,113.18],[24.142,113.328],[23.129,113.264]]},
+{name:'沪昆高铁',year:2016,color:'#FFC107',labelCoords:[27.282,111.482],coordinates:[[31.23,121.474],[31.12,121.38],[30.915,121.282],[30.732,120.752],[30.552,120.312],[30.38,120.22],[30.282,120.152],[30.132,120.082],[30.02,119.95],[29.832,119.652],[29.42,119.48],[29.012,119.542],[28.952,119.282],[28.72,118.52],[28.683,115.858],[28.52,115.65],[28.452,115.532],[28.32,115.22],[28.228,112.939],[27.92,112.8],[27.852,112.638],[27.632,112.452],[27.42,112.35],[27.352,112.182],[27.282,111.482],[27.252,110.52],[27.232,109.738],[27.32,109.28],[27.312,109.182],[27.42,109.08],[27.552,109.032],[27.32,107.88],[26.82,106.95],[26.642,106.852],[26.598,106.707],[26.42,106.58],[26.352,106.482],[26.12,105.98],[26.052,105.952],[25.72,104.95],[25.092,104.782],[25.08,103.82],[25.012,103.752],[25.032,103.412],[25.041,102.833]]},
+{name:'青藏铁路',year:2006,color:'#4CAF50',labelCoords:[33.032,91.892],coordinates:[[37.22,101.778],[37.18,101.25],[37.032,100.452],[36.92,100.12],[36.812,99.982],[36.75,99.52],[36.553,100.137],[36.32,99.58],[36.106,98.219],[35.82,97.85],[35.523,94.903],[35.22,94.35],[34.882,93.082],[34.52,92.82],[34.22,92.55],[33.922,92.432],[33.62,92.28],[33.472,92.082],[33.22,91.95],[32.832,91.892],[32.582,91.892],[32.22,91.92],[32.032,91.852],[31.82,91.78],[31.078,92.052],[30.82,91.88],[30.522,91.682],[30.12,91.52],[29.582,91.352],[29.42,91.25],[29.654,91.117]]},
+{name:'成渝铁路',year:1952,color:'#9C27B0',labelCoords:[30.122,104.642],coordinates:[[30.667,104.08],[30.62,104.15],[30.552,104.282],[30.38,104.42],[30.122,104.642],[29.92,104.85],[29.72,104.98],[29.582,105.052],[29.582,105.32],[29.582,105.532],[29.572,105.72],[29.572,105.912],[29.563,106.552]]},
+{name:'京张铁路',year:1909,color:'#E91E63',labelCoords:[40.372,115.982],coordinates:[[39.9042,116.4074],[39.92,116.32],[40.082,116.252],[40.15,116.18],[40.222,116.032],[40.28,115.98],[40.372,115.982],[40.365,115.892],[40.38,115.82],[40.452,115.812],[40.52,115.78],[40.652,115.752],[40.72,115.77],[40.769,115.785]]},
+{name:'中老铁路',year:2021,color:'#00BCD4',labelCoords:[22.012,100.798],coordinates:[[25.041,102.833],[24.92,102.78],[24.532,102.712],[24.32,102.65],[24.082,102.542],[23.82,102.52],[23.372,102.532],[23.18,102.49],[23.052,102.482],[22.82,102.25],[22.782,101.562],[22.52,101.28],[22.012,100.798],[21.932,100.882],[21.72,100.95],[21.172,101.152],[20.92,101.32],[20.892,101.432],[20.52,101.85],[19.882,102.142],[19.856,102.63]]},
+{name:'雅万高铁',year:2023,color:'#FF5722',labelCoords:[-6.582,107.152],coordinates:[[-6.179,106.816],[-6.22,106.85],[-6.322,106.952],[-6.39,107.02],[-6.552,107.122],[-6.65,107.22],[-6.722,107.352],[-6.82,107.49],[-6.888,107.589]]},
+{name:'中欧班列·北线',year:2024,color:'#9C27B0',labelCoords:[51.182,71.452],coordinates:[[39.9042,116.4074],[39.45,115.98],[38.052,114.62],[34.342,108.94],[36.623,101.778],[39.473,96.62],[42.82,93.582],[43.822,87.612],[44.02,82.48],[45.82,81.352],[47.82,66.88],[51.182,71.452],[55.752,37.622],[52.352,21.012],[50.82,4.352],[51.452,6.782]]},
+{name:'中欧班列·南线',year:2024,color:'#E040FB',labelCoords:[43.822,87.612],coordinates:[[29.563,106.552],[30.572,104.066],[34.342,108.94],[36.623,101.778],[39.473,96.62],[42.82,93.582],[43.822,87.612],[44.02,82.48],[45.82,81.352],[47.82,66.88],[51.182,71.452],[53.528,49.412],[52.242,17.012],[50.82,4.352],[51.452,6.782]]},
+{name:'陇海线',year:1953,color:'#7B1FA2',labelCoords:[36.623,101.778],coordinates:[[34.747,113.625],[34.262,108.948],[34.342,108.94],[36.623,101.778],[37.125,102.882],[39.473,96.62]]},
+{name:'京哈铁路',year:2020,color:'#FF8A65',labelCoords:[43.5,123.5],coordinates:[[39.9042,116.4074],[40.5,117.8],[41.8,120.8],[42.3,119.3],[43.9,125.3],[45.8,126.5],[47.3,123.9]]},
+{name:'沿海通道',year:2020,color:'#4DD0E1',labelCoords:[29.5,120.5],coordinates:[[38.9,121.6],[37.5,121.4],[36.1,120.4],[32.1,118.8],[31.2,121.5],[28.7,121.4],[26.1,119.3],[25.4,118.7],[24.5,118.1],[23.1,113.3]]},
+{name:'京港通道',year:2020,color:'#FFB74D',labelCoords:[30.5,115.5],coordinates:[[39.9042,116.4074],[37.7,114.5],[35.2,113.9],[32.1,114.1],[30.6,114.4],[28.2,113.0],[25.8,113.0],[23.1,114.2],[22.3,114.2]]},
+{name:'呼南通道',year:2020,color:'#AED581',labelCoords:[35.5,111.0],coordinates:[[40.8,111.7],[39.7,112.1],[38.0,112.7],[36.3,113.2],[34.8,113.7],[33.5,112.5],[31.8,111.0],[29.5,111.1],[27.2,111.5]]},
+{name:'京昆通道',year:2020,color:'#CE93D8',labelCoords:[33.5,108.5],coordinates:[[39.9042,116.4074],[38.0,114.5],[34.3,108.9],[32.7,109.0],[30.6,104.1],[28.2,112.9],[26.6,106.7],[25.0,102.8]]},
+{name:'包海通道',year:2020,color:'#80DEEA',labelCoords:[33.0,109.0],coordinates:[[40.6,109.8],[39.8,109.8],[38.3,109.7],[36.6,109.5],[34.3,108.9],[32.1,110.8],[29.3,110.5],[27.2,111.5],[25.3,110.3],[23.5,111.3],[22.5,113.1],[20.0,110.3]]},
+{name:'兰广通道',year:2020,color:'#A1887F',labelCoords:[31.0,105.0],coordinates:[[36.1,103.8],[34.6,104.7],[32.6,105.8],[30.6,104.1],[29.6,106.6],[27.2,111.5],[25.3,110.3],[23.1,113.3]]},
+{name:'绥满通道',year:2020,color:'#90A4AE',labelCoords:[47.0,123.0],coordinates:[[44.6,129.6],[45.3,127.0],[45.8,126.5],[46.8,130.3],[48.0,124.8],[49.2,119.7],[49.6,117.4]]},
+{name:'京兰通道',year:2020,color:'#BCAAA4',labelCoords:[39.5,111.0],coordinates:[[39.9042,116.4074],[40.6,112.5],[40.8,111.7],[40.0,109.8],[38.8,106.5],[37.5,105.2],[36.1,103.8]]},
+{name:'青银通道',year:2020,color:'#FFCC80',labelCoords:[37.5,112.0],coordinates:[[36.1,120.4],[36.7,118.5],[36.7,117.0],[37.5,112.5],[37.9,110.5],[38.3,106.4]]},
+{name:'陆桥通道',year:2020,color:'#FFAB91',labelCoords:[35.5,113.0],coordinates:[[34.7,119.5],[34.3,117.2],[34.8,113.6],[34.3,108.9],[36.6,101.8],[39.5,96.6],[43.8,87.6]]},
+{name:'沿江通道',year:2020,color:'#81D4FA',labelCoords:[31.0,112.0],coordinates:[[31.2,121.5],[32.1,118.8],[31.6,117.2],[30.6,114.3],[30.6,111.3],[29.6,106.6],[30.6,104.1]]},
+{name:'广昆通道',year:2020,color:'#F48FB1',labelCoords:[24.0,109.5],coordinates:[[23.1,113.3],[22.8,112.5],[22.5,110.0],[24.3,109.4],[24.5,108.1],[23.8,107.0],[25.0,102.8]]},
+{name:'厦渝通道',year:2020,color:'#A5D6A7',labelCoords:[27.0,114.0],coordinates:[[24.5,118.1],[25.1,117.5],[26.1,116.3],[26.9,114.8],[27.8,113.6],[28.2,113.0],[29.5,111.1],[29.6,106.6]]},
+{name:'西成高铁',year:2017,color:'#EF5350',labelCoords:[32.5,106.5],coordinates:[[34.3,108.9],[33.7,107.8],[33.1,106.8],[32.5,105.8],[31.5,105.5],[30.6,104.1]]},
+{name:'贵广高铁',year:2014,color:'#42A5F5',labelCoords:[24.9,110.0],coordinates:[[26.6,106.7],[26.2,107.5],[25.8,108.5],[25.3,109.5],[24.5,110.5],[23.8,111.2],[23.1,113.3]]},
+{name:'兰新高铁',year:2014,color:'#66BB6A',labelCoords:[40.0,95.0],coordinates:[[36.1,103.8],[37.5,105.2],[38.8,106.5],[39.5,102.5],[40.5,98.0],[41.5,93.5],[42.5,88.5],[43.8,87.6]]},
+{name:'南广高铁',year:2014,color:'#FF7043',labelCoords:[25.2,112.3],coordinates:[[27.2,111.5],[26.5,111.5],[25.8,111.5],[25.2,112.0],[24.5,112.5],[23.8,112.8],[23.1,113.3]]},
+{name:'合福高铁',year:2015,color:'#AB47BC',labelCoords:[28.5,117.5],coordinates:[[31.8,117.3],[31.0,117.5],[29.8,117.5],[28.5,118.0],[27.5,118.5],[26.5,119.0],[26.1,119.3]]},
+{name:'济青高铁',year:2018,color:'#26A69A',labelCoords:[36.4,118.7],coordinates:[[36.7,117.0],[36.8,117.8],[36.8,118.5],[36.5,119.2],[36.2,119.8],[36.1,120.4]]},
+{name:'成贵高铁',year:2019,color:'#78909C',labelCoords:[28.6,105.4],coordinates:[[30.6,104.1],[29.8,104.8],[28.8,105.2],[27.8,105.8],[27.2,106.2],[26.6,106.7]]},
+{name:'郑西高铁',year:2010,color:'#FFCA28',labelCoords:[34.5,111.0],coordinates:[[34.8,113.6],[34.7,112.5],[34.5,111.5],[34.3,110.5],[34.3,108.9]]},
+{name:'兰渝铁路',year:2017,color:'#8D6E63',labelCoords:[32.8,105.2],coordinates:[[36.1,103.8],[35.2,104.5],[34.2,105.2],[33.0,105.5],[31.8,105.8],[30.8,106.2],[29.6,106.6]]},
+{name:'哈大高铁',year:2012,color:'#FF8A65',labelCoords:[42.0,124.0],coordinates:[[45.8,126.5],[44.5,125.5],[43.5,125.0],[42.8,124.5],[42.0,124.0],[41.0,123.0],[39.5,121.8],[38.9,121.6]]},
+{name:'徐兰高铁',year:2016,color:'#FF7043',labelCoords:[35.5,110.5],coordinates:[[34.3,117.2],[34.6,115.5],[34.8,113.6],[34.5,111.5],[34.3,108.9],[35.0,106.0],[36.1,103.8]]},
+{name:'沪宁城际',year:2010,color:'#7E57C2',labelCoords:[31.6,120.2],coordinates:[[31.2,121.5],[31.3,120.8],[31.4,120.3],[31.6,119.9],[31.8,119.4],[32.0,119.0],[32.1,118.8]]},
+{name:'京津城际',year:2008,color:'#FF5252',labelCoords:[39.5,116.8],coordinates:[[39.9042,116.4074],[39.7,116.6],[39.5,116.8],[39.3,117.0],[39.1,117.2]]},
+{name:'大西高铁',year:2014,color:'#29B6F6',labelCoords:[37.5,111.0],coordinates:[[40.1,113.3],[39.0,112.5],[38.1,112.0],[37.5,111.5],[36.5,111.0],[35.5,110.5],[34.3,108.9]]},
+{name:'成渝高铁',year:2015,color:'#EC407A',labelCoords:[30.1,105.3],coordinates:[[30.6,104.1],[30.2,104.8],[29.8,105.5],[29.6,106.2],[29.6,106.6]]},
+{name:'广深港高铁',year:2018,color:'#1E88E5',labelCoords:[22.7,113.8],coordinates:[[23.1,113.3],[22.9,113.6],[22.7,113.8],[22.5,114.0],[22.3,114.2]]},
+{name:'昌赣深高铁',year:2021,color:'#8E24AA',labelCoords:[26.5,115.0],coordinates:[[28.7,115.9],[28.0,115.5],[27.0,115.0],[26.0,114.8],[25.0,114.7],[24.0,114.5],[23.1,114.2],[22.6,114.0]]},
+{name:'郑渝高铁',year:2022,color:'#43A047',labelCoords:[32.5,111.5],coordinates:[[34.8,113.6],[33.5,112.5],[32.5,111.5],[31.5,111.0],[30.6,110.0],[30.0,108.5],[29.6,106.6]]},
+{name:'银西高铁',year:2020,color:'#FDD835',labelCoords:[36.5,106.5],coordinates:[[38.5,106.2],[37.8,106.0],[37.0,106.0],[36.2,106.2],[35.5,107.0],[34.8,108.0],[34.3,108.9]]},
+{name:'商合杭高铁',year:2020,color:'#66BB6A',labelCoords:[32.5,117.0],coordinates:[[34.4,115.7],[33.8,116.2],[32.8,116.5],[31.8,117.3],[31.0,118.2],[30.3,119.2],[30.3,120.2]]},{name:'中蒙铁路',year:2025,color:'#FF7043',labelCoords:[44.0,110.0],coordinates:[[39.9042,116.4074],[41.0,113.5],[42.5,111.0],[43.5,107.5],[45.0,105.5],[47.0,104.5],[47.9,106.8]]},{name:'中泰铁路',year:2025,color:'#FFA726',labelCoords:[17.0,102.5],coordinates:[[19.9,102.1],[19.0,101.8],[18.0,101.5],[17.0,101.2],[16.0,100.8],[15.0,100.5],[13.8,100.5]]},{name:'中缅铁路',year:2027,color:'#26C6DA',labelCoords:[20.5,97.0],coordinates:[[25.0,102.8],[23.5,101.5],[22.0,100.5],[20.5,99.0],[19.5,97.5],[18.5,96.5],[17.3,96.1]]},{name:'中越铁路',year:2023,color:'#66BB6A',labelCoords:[22.0,106.5],coordinates:[[25.0,102.8],[24.5,104.5],[23.5,105.5],[22.5,106.0],[21.5,106.0],[21.0,105.8]]},{name:'中巴铁路',year:2030,color:'#EF5350',labelCoords:[37.0,72.0],coordinates:[[39.5,96.6],[38.5,92.0],[37.5,88.0],[36.5,84.0],[36.0,80.0],[35.5,76.0],[35.0,72.0],[33.5,70.5],[33.0,70.0]]},{name:'中吉乌铁路',year:2026,color:'#FF8A65',labelCoords:[41.0,74.5],coordinates:[[39.5,96.6],[40.5,92.0],[41.0,88.0],[41.2,84.0],[41.5,80.0],[41.8,76.0],[42.0,74.0]]},{name:'新亚欧大陆桥',year:2024,color:'#9C27B0',labelCoords:[48.0,60.0],coordinates:[[43.8,87.6],[44.5,82.0],[46.0,77.0],[47.0,72.0],[48.5,67.0],[49.5,62.0],[50.5,57.0],[51.5,52.0],[52.5,47.0],[53.0,42.0],[52.5,37.0],[52.0,25.0],[51.5,15.0],[51.0,10.0],[51.5,6.8]]},{name:'俄罗斯远东线',year:2024,color:'#AB47BC',labelCoords:[55.0,90.0],coordinates:[[43.8,87.6],[46.0,90.0],[48.5,92.0],[51.0,95.0],[53.5,98.0],[55.0,100.0],[56.0,103.0],[58.0,105.0]]}];
+
+const cities=[{name:'北京',coords:[39.9042,116.4074]},{name:'上海',coords:[31.2304,121.4737]},{name:'广州',coords:[23.1291,113.2644]},{name:'成都',coords:[30.5723,104.0665]},{name:'武汉',coords:[30.5801,114.2734]},{name:'西安',coords:[34.3416,108.9398]},{name:'拉萨',coords:[29.6544,91.1174]},{name:'昆明',coords:[25.0406,102.8329]},{name:'重庆',coords:[29.563,106.5516]},{name:'天津',coords:[39.0842,117.2008]},{name:'南京',coords:[32.0603,118.7969]},{name:'郑州',coords:[34.7975,113.7255]},{name:'长沙',coords:[28.2282,112.9388]},{name:'济南',coords:[36.6512,117.12]},{name:'贵阳',coords:[26.5979,106.707]},{name:'唐山',coords:[39.6304,118.1802]}];
+const mapLayers={voyager:{url:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',name:'Voyager标准',subdomains:'abcd'},light:{url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',name:'浅色底图',subdomains:'abcd'},dark:{url:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',name:'暗色底图',subdomains:'abcd'}};
+let currentMapLayer='voyager';
+const map=L.map('map',{center:chapters[0].camera.center,zoom:chapters[0].camera.zoom,zoomControl:true,scrollWheelZoom:true});
+let currentTileLayer=L.tileLayer(mapLayers.voyager.url,{attribution:'&copy; OSM &copy; CARTO',maxZoom:20,subdomains:'abcd'}).addTo(map);
+const railwayLayers={};
+fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json')
+  .then(r=>r.json())
+  .then(data=>{ L.geoJSON(data,{style:{color:'#1A237E',weight:2.5,opacity:.75,dashArray:'10,6',fillOpacity:.03,fillColor:'#1A237E'}}).addTo(map); })
+  .catch(()=>{ L.polyline([[53.5,123.0],[50.5,130.0],[48.5,135.0],[46.5,134.0],[44.5,131.0],[42.0,129.0],[41.0,125.5],[42.5,123.0],[44.5,118.0],[47.5,117.0],[48.5,115.0],[50.5,108.0],[49.0,100.0],[48.0,96.0],[47.5,90.0],[49.5,84.0],[46.0,83.0],[41.0,79.0],[39.0,74.0],[35.0,78.5],[30.5,80.0],[27.5,85.0],[28.0,90.0],[28.0,96.0],[26.0,99.0],[23.0,99.0],[21.5,101.5],[21.5,103.0],[22.5,106.5],[23.2,105.0],[21.5,107.0],[22.0,109.0],[23.5,113.5],[24.0,115.5],[26.5,119.5],[30.0,121.5],[35.0,120.5],[38.0,119.0],[40.0,119.0],[42.0,122.0],[45.0,126.0],[49.0,127.0],[53.5,123.0]],{color:'#1A237E',weight:2.5,opacity:.65,dashArray:'10,6'}).addTo(map); });
+railwayLines.forEach(r=>{const p=L.polyline(r.coordinates,{color:r.color,weight:5,opacity:.85,smoothFactor:2,lineCap:'round',lineJoin:'round'}).addTo(map);p.bindPopup('<b>🚄 '+r.name+'</b><br>通车年份：'+r.year);railwayLayers[r.name]=p});
+const wusongRailway=L.polyline([[31.2304,121.4737],[31.28,121.50],[31.33,121.50],[31.38,121.49]],{color:'#C0392B',weight:4,opacity:.7,dashArray:'8,6',smoothFactor:1}).addTo(map);railwayLayers.wuSong=wusongRailway;
+const videoPaths={wusong:'videos/wusong.mp4',jingzhang:'videos/jingzhang.mp4',qingzang:'videos/qingzang.mp4',bainian:'videos/bainian.mp4'};
+function openVideo(k){const v=videoPaths[k];if(!v)return;const wrapper=document.createElement('div');wrapper.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;backdrop-filter:blur(10px);font-family:"Segoe UI","PingFang SC",sans-serif';
+const card=document.createElement('div');card.style.cssText='position:relative;background:linear-gradient(135deg,#1a1f2e,#0f1419);border:2px solid #00CCFF;border-radius:16px;padding:16px;box-shadow:0 20px 60px rgba(0,0,0,.8),0 0 40px rgba(0,200,255,.25);max-width:90vw';
+const close=document.createElement('button');close.innerHTML='✕';close.style.cssText='position:absolute;top:-15px;right:-15px;width:36px;height:36px;background:linear-gradient(135deg,#0088CC,#00CCFF);color:#fff;border:2px solid #fff;border-radius:50%;cursor:pointer;font-weight:900;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:10;box-shadow:0 4px 15px rgba(0,200,255,.4);transition:all .3s';close.onmouseover=()=>{close.style.transform='scale(1.1)';close.style.boxShadow='0 6px 20px rgba(0,200,255,.6)'};close.onmouseout=()=>{close.style.transform='scale(1)';close.style.boxShadow='0 4px 15px rgba(255,107,53,.6)'};
+const title=document.createElement('div');title.style.cssText='color:#FFD700;font-weight:900;font-size:16px;text-align:center;margin-bottom:12px;letter-spacing:1px';title.textContent='🎬 '+(k==='wusong'?'吴淞铁路·1876':k==='jingzhang'?'京张铁路·1909':k==='qingzang'?'青藏铁路·2006':'百年征程·2024');
+const video=document.createElement('video');video.src=v;video.controls=true;video.autoplay=true;video.style.cssText='width:100%;max-height:70vh;border-radius:10px;outline:none;border:1px solid rgba(255,107,53,.3)';
+card.appendChild(close);card.appendChild(title);card.appendChild(video);wrapper.appendChild(card);
+const closeAll=()=>wrapper.remove();close.addEventListener('click',closeAll);wrapper.addEventListener('click',e=>{if(e.target===wrapper)closeAll()});document.addEventListener('keydown',function esc(e){if(e.key==='Escape'){closeAll();document.removeEventListener('keydown',esc)}});document.body.appendChild(wrapper)}
+const historyMarkers=[{id:'intro',coords:[31.38,121.49],html:'<b>🚂 1876·吴淞铁路</b><br><span style="font-size:12px;color:#8B4513">中国第一条营运铁路</span><br><span style="font-size:11px;color:#666">通车14.5公里，1年后被清政府拆毁</span>'+(videoPaths.wusong?'<br><button onclick="openVideo(\'wusong\')" style="margin-top:6px;padding:4px 12px;background:#C0392B;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold">▶ 播放视频</button>':''),color:'#C0392B'},{id:'beginning-2',coords:[40.3652,115.8918],html:'<b>🏔️ 1909·京张铁路</b><br><span style="font-size:12px;color:#8B4513">中国人自主设计的第一条干线</span><br><span style="font-size:11px;color:#666">詹天佑"人"字形设计</span>'+(videoPaths.jingzhang?'<br><button onclick="openVideo(\'jingzhang\')" style="margin-top:6px;padding:4px 12px;background:#8B4513;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold">▶ 播放视频</button>':''),color:'#8B4513'},{id:'development-1',coords:[30.122,104.642],html:'<b>🏗️ 1952·成渝铁路</b><br><span style="font-size:12px;color:#2E7D32">新中国第一条铁路</span><br><span style="font-size:11px;color:#666">30万军民2年凿通505公里</span>',color:'#2E7D32'},{id:'development-3',coords:[32.532,91.852],html:'<b>🌌 2006·青藏铁路</b><br><span style="font-size:12px;color:#1565C0">世界海拔最高的铁路</span><br><span style="font-size:11px;color:#666">穿越550公里冻土区</span>'+(videoPaths.qingzang?'<br><button onclick="openVideo(\'qingzang\')" style="margin-top:6px;padding:4px 12px;background:#1565C0;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold">▶ 播放视频</button>':''),color:'#1565C0'},{id:'conclusion',coords:[35.86,104.19],html:'<b>🎯 百年征程·日行千里</b><br><span style="font-size:12px;color:#FF6B35">15.9万公里铁路 · 4.5万公里高铁</span><br><span style="font-size:11px;color:#666">从被拆毁到全球第一，148年崛起之路</span>'+(videoPaths.bainian?'<br><button onclick="openVideo(\'bainian\')" style="margin-top:6px;padding:4px 12px;background:#FF6B35;color:#000;border:none;border-radius:8px;cursor:pointer;font-weight:bold">▶ 播放视频</button>':''),color:'#FF6B35'}];
+const historyMarkerObjs={};historyMarkers.forEach(n=>{const m=L.circleMarker(n.coords,{radius:8,fillColor:n.color,color:'#fff',weight:3,fillOpacity:.95}).addTo(map);m.bindPopup(n.html);historyMarkerObjs[n.id]=m});
+const railwayStations=[{name:'wuSong',startName:'上海',startCoords:[31.2304,121.4737],endName:'吴淞',endCoords:[31.38,121.49]},{name:'京沪高铁',startName:'北京南',startCoords:[39.9042,116.4074],endName:'上海虹桥',endCoords:[31.2304,121.4737]},{name:'京广高铁',startName:'北京西',startCoords:[39.9042,116.4074],endName:'广州南',endCoords:[23.1291,113.2644]},{name:'沪昆高铁',startName:'上海虹桥',startCoords:[31.2304,121.4737],endName:'昆明南',endCoords:[25.0406,102.8329]},{name:'青藏铁路',startName:'西宁',startCoords:[37.22,101.7782],endName:'拉萨',endCoords:[29.6544,91.1174]},{name:'成渝铁路',startName:'成都',startCoords:[30.667,104.0795],endName:'重庆',endCoords:[29.563,106.5516]},{name:'京张铁路',startName:'北京',startCoords:[39.9042,116.4074],endName:'张家口',endCoords:[40.7686,115.7847]},{name:'中老铁路',startName:'昆明',startCoords:[25.0406,102.8329],endName:'万象',endCoords:[19.8563,102.6297]},{name:'雅万高铁',startName:'雅加达',startCoords:[-6.179,106.816],endName:'万隆',endCoords:[-6.888,107.589]},{name:'中欧班列·北线',startName:'北京',startCoords:[39.9042,116.4074],endName:'杜伊斯堡(德)',endCoords:[51.452,6.782]},{name:'中欧班列·南线',startName:'重庆',startCoords:[29.563,106.5516],endName:'杜伊斯堡(德)',endCoords:[51.452,6.782]},{name:'陇海线',startName:'郑州',startCoords:[34.7466,113.6253],endName:'乌鲁木齐',endCoords:[43.822,87.612]},{name:'京哈铁路',startName:'北京',startCoords:[39.9042,116.4074],endName:'哈尔滨',endCoords:[47.3,123.9]},{name:'沿海通道',startName:'大连',startCoords:[38.9,121.6],endName:'广州',endCoords:[23.1,113.3]},{name:'京港通道',startName:'北京',startCoords:[39.9042,116.4074],endName:'香港',endCoords:[22.3,114.2]},{name:'呼南通道',startName:'呼和浩特',startCoords:[40.8,111.7],endName:'南宁',endCoords:[27.2,111.5]},{name:'京昆通道',startName:'北京',startCoords:[39.9042,116.4074],endName:'昆明',endCoords:[25.0,102.8]},{name:'包海通道',startName:'包头',startCoords:[40.6,109.8],endName:'海口',endCoords:[20.0,110.3]},{name:'兰广通道',startName:'兰州',startCoords:[36.1,103.8],endName:'广州',endCoords:[23.1,113.3]},{name:'绥满通道',startName:'绥芬河',startCoords:[44.6,129.6],endName:'满洲里',endCoords:[49.6,117.4]},{name:'京兰通道',startName:'北京',startCoords:[39.9042,116.4074],endName:'兰州',endCoords:[36.1,103.8]},{name:'青银通道',startName:'青岛',startCoords:[36.1,120.4],endName:'银川',endCoords:[38.3,106.4]},{name:'陆桥通道',startName:'连云港',startCoords:[34.7,119.5],endName:'乌鲁木齐',endCoords:[43.8,87.6]},{name:'沿江通道',startName:'上海',startCoords:[31.2,121.5],endName:'成都',endCoords:[30.6,104.1]},{name:'广昆通道',startName:'广州',startCoords:[23.1,113.3],endName:'昆明',endCoords:[25.0,102.8]},{name:'厦渝通道',startName:'厦门',startCoords:[24.5,118.1],endName:'重庆',endCoords:[29.6,106.6]},{name:'西成高铁',startName:'西安',startCoords:[34.3,108.9],endName:'成都',endCoords:[30.6,104.1]},{name:'贵广高铁',startName:'贵阳',startCoords:[26.6,106.7],endName:'广州',endCoords:[23.1,113.3]},{name:'兰新高铁',startName:'兰州',startCoords:[36.1,103.8],endName:'乌鲁木齐',endCoords:[43.8,87.6]},{name:'南广高铁',startName:'南宁',startCoords:[27.2,111.5],endName:'广州',endCoords:[23.1,113.3]},{name:'合福高铁',startName:'合肥',startCoords:[31.8,117.3],endName:'福州',endCoords:[26.1,119.3]},{name:'济青高铁',startName:'济南',startCoords:[36.7,117.0],endName:'青岛',endCoords:[36.1,120.4]},{name:'成贵高铁',startName:'成都',startCoords:[30.6,104.1],endName:'贵阳',endCoords:[26.6,106.7]},{name:'郑西高铁',startName:'郑州',startCoords:[34.8,113.6],endName:'西安',endCoords:[34.3,108.9]},{name:'兰渝铁路',startName:'兰州',startCoords:[36.1,103.8],endName:'重庆',endCoords:[29.6,106.6]},{name:'哈大高铁',startName:'哈尔滨',startCoords:[45.8,126.5],endName:'大连',endCoords:[38.9,121.6]},{name:'徐兰高铁',startName:'徐州',startCoords:[34.3,117.2],endName:'兰州',endCoords:[36.1,103.8]},{name:'沪宁城际',startName:'上海',startCoords:[31.2,121.5],endName:'南京',endCoords:[32.1,118.8]},{name:'京津城际',startName:'北京',startCoords:[39.9042,116.4074],endName:'天津',endCoords:[39.1,117.2]},{name:'大西高铁',startName:'大同',startCoords:[40.1,113.3],endName:'西安',endCoords:[34.3,108.9]},{name:'成渝高铁',startName:'成都',startCoords:[30.6,104.1],endName:'重庆',endCoords:[29.6,106.6]},{name:'广深港高铁',startName:'广州',startCoords:[23.1,113.3],endName:'香港',endCoords:[22.3,114.2]},{name:'昌赣深高铁',startName:'南昌',startCoords:[28.7,115.9],endName:'深圳',endCoords:[22.6,114.0]},{name:'郑渝高铁',startName:'郑州',startCoords:[34.8,113.6],endName:'重庆',endCoords:[29.6,106.6]},{name:'银西高铁',startName:'银川',startCoords:[38.5,106.2],endName:'西安',endCoords:[34.3,108.9]},{name:'商合杭高铁',startName:'商丘',startCoords:[34.4,115.7],endName:'杭州',endCoords:[30.3,120.2]},{name:'中蒙铁路',startName:'北京',startCoords:[39.9042,116.4074],endName:'乌兰巴托',endCoords:[47.9,106.8]},{name:'中泰铁路',startName:'万象',startCoords:[19.9,102.1],endName:'曼谷',endCoords:[13.8,100.5]},{name:'中缅铁路',startName:'昆明',startCoords:[25.0,102.8],endName:'仰光',endCoords:[17.3,96.1]},{name:'中越铁路',startName:'昆明',startCoords:[25.0,102.8],endName:'河内',endCoords:[21.0,105.8]},{name:'中巴铁路',startName:'喀什',startCoords:[39.5,96.6],endName:'伊斯兰堡',endCoords:[33.0,70.0]},{name:'中吉乌铁路',startName:'喀什',startCoords:[39.5,96.6],endName:'塔什干',endCoords:[42.0,74.0]},{name:'新亚欧大陆桥',startName:'乌鲁木齐',startCoords:[43.8,87.6],endName:'鹿特丹(荷)',endCoords:[51.5,6.8]},{name:'俄罗斯远东线',startName:'乌鲁木齐',startCoords:[43.8,87.6],endName:'莫斯科',endCoords:[58.0,105.0]}];
+const stationMarkers={start:{},end:{}};
+railwayStations.forEach(r=>{const s=L.circleMarker(r.startCoords,{radius:10,fillColor:'#4CAF50',color:'#fff',weight:3.5,fillOpacity:.95}).addTo(map);s.bindPopup('🚆 '+r.startName);stationMarkers.start[r.name]=s});
+railwayStations.forEach(r=>{const e=L.circleMarker(r.endCoords,{radius:10,fillColor:'#FF5252',color:'#fff',weight:3.5,fillOpacity:.95}).addTo(map);e.bindPopup('🚆 '+r.endName);stationMarkers.end[r.name]=e});
+const beltAndRoadNodes=[{name:'🇨🇳 北京',coords:[39.9042,116.4074]},{name:'🇨🇳 西安',coords:[34.3416,108.9398]},{name:'🇨🇳 兰州',coords:[36.6231,101.7782]},{name:'🇨🇳 乌鲁木齐',coords:[43.822,87.612]},{name:'🇲🇳 乌兰巴托',coords:[47.9,106.8]},{name:'🇰🇿 阿斯塔纳',coords:[47.82,66.88]},{name:'🇷🇺 莫斯科',coords:[55.752,37.622]},{name:'🇵🇱 华沙',coords:[52.242,21.012]},{name:'🇩🇪 杜伊斯堡',coords:[51.452,6.782]},{name:'🇩🇪 鹿特丹',coords:[51.5,6.8]},{name:'🇹🇭 曼谷',coords:[13.8,100.5]},{name:'🇲🇲 仰光',coords:[17.3,96.1]},{name:'🇻🇳 河内',coords:[21.0,105.8]},{name:'🇵🇰 伊斯兰堡',coords:[33.0,70.0]},{name:'🇺🇿 塔什干',coords:[42.0,74.0]},{name:'🇱🇦 万象',coords:[19.9,102.1]}];
+const beltRoadMarkers=[];
+beltAndRoadNodes.forEach(n=>{const m=L.circleMarker(n.coords,{radius:10,fillColor:'#9C27B0',color:'#fff',weight:3,opacity:.7,fillOpacity:.7});m.bindPopup('🛤️ '+n.name);beltRoadMarkers.push(m)});
+const layerList=document.getElementById('layer-list');
+railwayLines.forEach(r=>{const item=document.createElement('div');item.className='layer-item';item.innerHTML='<div style="display:flex;align-items:center;gap:.75rem"><div style="width:16px;height:16px;border-radius:3px;background:'+r.color+'"></div><span style="color:#d4d4d8;font-size:.9rem;font-weight:600">'+r.name+'</span></div><div class="toggle-switch active"><div class="toggle-slider"></div></div>';item.querySelector('.toggle-switch').addEventListener('click',e=>{e.stopPropagation();const t=e.currentTarget;t.classList.toggle('active');t.classList.contains('active')?map.addLayer(railwayLayers[r.name]):map.removeLayer(railwayLayers[r.name])});layerList.appendChild(item)});
+const timeline=document.getElementById('timeline');const shortNames=['铁路之梦','第一声笛','詹天佑','成渝奇迹','青藏天路','八纵八横','走出国门','丝绸路','百年征程'];
+chapters.forEach((ch,i)=>{const d=document.createElement('div');d.className='timeline-item'+(i===0?' active':'');d.innerHTML='<div class="timeline-dot-circle"></div><div class="timeline-label">'+shortNames[i]+'</div><div class="timeline-year">'+ch.year+'</div>';d.addEventListener('click',()=>updateChapter(i));timeline.appendChild(d)});
+const railwayLabels={};railwayLines.forEach(r=>{const lc=r.labelCoords||r.coordinates[Math.floor(r.coordinates.length/2)];railwayLabels[r.name]=L.marker(lc,{icon:L.divIcon({className:'railway-label',html:'<div style="background:linear-gradient(135deg,'+r.color+','+r.color+'dd);color:#fff;padding:6px 12px;border-radius:16px;font-weight:900;font-size:13px;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.5);border:2px solid #fff">🚄 '+r.name+'</div>',iconSize:[150,30],iconAnchor:[75,15]})})});
+let currentChapterIndex=0,autoPlayInterval=null;
+function updateChapter(index){
+ currentChapterIndex=index;const ch=chapters[index];
+ document.getElementById('chapter-title').textContent=ch.title;
+ document.getElementById('chapter-time').innerHTML='<i class="far fa-calendar"></i> '+ch.year+'年';
+ const img=document.getElementById('chapter-img');img.src=imgs[index];img.onerror=function(){this.style.display='none';this.parentElement.style.background=fallbackBgs[index]};
+ var hint='';if(index===0){hint='<p style="text-align:center;color:#B8860B;font-size:.9rem;margin-top:.5rem;animation:pulse 2s infinite"><i class="fas fa-chevron-down"></i> 向下滚动，开启百年征程 <i class="fas fa-chevron-down"></i></p>'}
+document.getElementById('story-text').innerHTML='<p>'+ch.description+'</p>'+hint;
+ document.getElementById('story-stats').innerHTML=ch.stats.map(s=>'<div class="stat-item"><div class="stat-value">'+s.v+'</div><div class="stat-label">'+s.l+'</div></div>').join('');
+ document.querySelectorAll('.timeline-item').forEach((el,i)=>el.classList.toggle('active',i===index));
+ document.getElementById('timeline-progress-bar').style.width=((index+1)/chapters.length*100)+'%';
+ map.flyTo(ch.camera.center,ch.camera.zoom,{duration:2});
+ const solo=ch.soloLines!==undefined?new Set(ch.soloLines):null;
+Object.keys(railwayLayers).forEach(n=>{if(solo? solo.has(n):true){if(!map.hasLayer(railwayLayers[n]))map.addLayer(railwayLayers[n])}else{if(map.hasLayer(railwayLayers[n]))map.removeLayer(railwayLayers[n])}});
+Object.keys(stationMarkers.start).forEach(n=>{try{stationMarkers.start[n].remove()}catch(e){};try{stationMarkers.end[n].remove()}catch(e){}});
+if(solo&&solo.size>0){solo.forEach(n=>{if(stationMarkers.start[n]){stationMarkers.start[n].addTo(map);stationMarkers.end[n].addTo(map)}})}else if(!solo){Object.keys(stationMarkers.start).forEach(n=>{stationMarkers.start[n].addTo(map);stationMarkers.end[n].addTo(map)})}
+beltRoadMarkers.forEach(m=>{try{m.remove()}catch(e){}});
+if(ch.id==='ending-2'){beltRoadMarkers.forEach(m=>{const ll=m.getLatLng();if([39.9,34.3,36.6,43.8,55.8,51.5,52.2].some(lat=>Math.abs(ll.lat-lat)<0.5))m.addTo(map)})}else if(ch.id==='conclusion'||!solo)beltRoadMarkers.forEach(m=>m.addTo(map));
+historyMarkers.forEach(n=>{if(historyMarkerObjs[n.id])map.removeLayer(historyMarkerObjs[n.id])});
+if(historyMarkerObjs[ch.id])historyMarkerObjs[ch.id].addTo(map);
+Object.values(historyMarkerObjs).forEach(m=>m.closePopup());if(historyMarkerObjs[ch.id])setTimeout(()=>historyMarkerObjs[ch.id].openPopup(),2200);
+Object.values(railwayLabels).forEach(l=>{try{map.removeLayer(l)}catch(e){}});
+Object.values(railwayLayers).forEach(l=>{l.setStyle({weight:5,opacity:.85});if(l.getElement())l.getElement().classList.remove('highlighted-railway')});
+ if(ch.hlLine){let hrs;if(ch.hlLine.includes('中欧班列'))hrs=['中欧班列·北线','中欧班列·南线','陇海线'];else hrs=[ch.hlLine];hrs.forEach(n=>{if(railwayLayers[n]){railwayLayers[n].setStyle({weight:8,opacity:1});if(railwayLayers[n].getElement())railwayLayers[n].getElement().classList.add('highlighted-railway');if(railwayLabels[n])railwayLabels[n].addTo(map)}})}
+ if(compareMode){document.getElementById('compare-label-l').textContent=ch.year+'年';setTimeout(()=>{if(rightMap)rightMap.invalidateSize();map.invalidateSize()},500);}
+ }
+function toggleAutoPlay(){const b=document.getElementById('autoPlayBtn');if(autoPlayInterval){clearInterval(autoPlayInterval);autoPlayInterval=null;b.textContent='▶️'}else{b.textContent='⏸️';autoPlayInterval=setInterval(()=>{if(currentChapterIndex<chapters.length-1){stopTrainAnimation();updateChapter(currentChapterIndex+1)}else{clearInterval(autoPlayInterval);autoPlayInterval=null;b.textContent='▶️'}},8000)}}
+document.getElementById('resetBtn').addEventListener('click',()=>map.flyTo(chapters[0].camera.center,chapters[0].camera.zoom,{duration:2}));
+let layerPanelVisible=false;document.getElementById('layerToggleBtn').addEventListener('click',e=>{e.stopPropagation();layerPanelVisible=!layerPanelVisible;document.getElementById('layer-panel').classList.toggle('hidden',!layerPanelVisible);document.getElementById('layerToggleBtn').classList.toggle('active',layerPanelVisible)});
+document.getElementById('layer-panel').addEventListener('click',e=>e.stopPropagation());
+document.addEventListener('click',e=>{if(!document.getElementById('layerToggleBtn').contains(e.target)&&!document.getElementById('layer-panel').contains(e.target)&&layerPanelVisible){layerPanelVisible=false;document.getElementById('layer-panel').classList.add('hidden');document.getElementById('layerToggleBtn').classList.remove('active')}},true);
+document.getElementById('mapLayerBtn').addEventListener('click',()=>{const ks=Object.keys(mapLayers);const ci=ks.indexOf(currentMapLayer);currentMapLayer=ks[(ci+1)%ks.length];map.removeLayer(currentTileLayer);currentTileLayer=L.tileLayer(mapLayers[currentMapLayer].url,{attribution:'&copy; OSM &copy; CARTO',maxZoom:20,subdomains:'abcd'}).addTo(map);document.getElementById('mapLayerBtn').title='当前：'+mapLayers[currentMapLayer].name});
+document.getElementById('autoPlayBtn').addEventListener('click',toggleAutoPlay);
+let scrollLock=false;
+const scrollContainer=document.getElementById('story-scroll');
+scrollContainer.addEventListener('wheel',function(e){if(scrollLock)return;var atBottom=scrollContainer.scrollTop+scrollContainer.clientHeight>=scrollContainer.scrollHeight-5;var atTop=scrollContainer.scrollTop<=5;if(e.deltaY>30&&atBottom&&currentChapterIndex<chapters.length-1){e.preventDefault();scrollLock=true;updateChapter(currentChapterIndex+1);setTimeout(function(){scrollLock=false},800)}else if(e.deltaY<-30&&atTop&&currentChapterIndex>0){e.preventDefault();scrollLock=true;updateChapter(currentChapterIndex-1);setTimeout(function(){scrollLock=false},800)}},{passive:false});
+let compareMode=false,rightMap=null,rightTileLayer=null,rightRailwayLayers={},rightCityMarkers={},rightLabels={};
+function initCompareMode(){const mr=document.getElementById('map-right');if(!rightMap){rightMap=L.map(mr,{center:[42.0,90.0],zoom:3.5,zoomControl:true,scrollWheelZoom:true,attributionControl:false});rightTileLayer=L.tileLayer(mapLayers.voyager.url,{attribution:'&copy; OSM &copy; CARTO',maxZoom:20,subdomains:'abcd'}).addTo(rightMap);}rightMap.invalidateSize();}
+function updateRightMap(){if(!rightMap)return;rightMap.eachLayer(layer=>{if(layer!==rightTileLayer)rightMap.removeLayer(layer)});rightRailwayLayers={};rightCityMarkers={};rightLabels={};const endCh=chapters[chapters.length-1];rightMap.setView(endCh.camera.center,endCh.camera.zoom);railwayLines.forEach(r=>{const p=L.polyline(r.coordinates,{color:r.color,weight:4,opacity:.8,smoothFactor:2,lineCap:'round',lineJoin:'round'}).addTo(rightMap);p.bindPopup('<b>🚄 '+r.name+'</b><br>通车年份：'+r.year);rightRailwayLayers[r.name]=p});cities.forEach(c=>{const m=L.circleMarker(c.coords,{radius:7,fillColor:'#FFD700',color:'#fff',weight:2,fillOpacity:.9}).addTo(rightMap);m.bindPopup('<b>📍 '+c.name+'</b>');rightCityMarkers[c.name]=m});railwayStations.forEach(r=>{L.circleMarker(r.startCoords,{radius:8,fillColor:'#4CAF50',color:'#fff',weight:3,fillOpacity:.9}).addTo(rightMap).bindPopup('🚆 '+r.startName)});railwayStations.forEach(r=>{L.circleMarker(r.endCoords,{radius:8,fillColor:'#FF5252',color:'#fff',weight:3,fillOpacity:.9}).addTo(rightMap).bindPopup('🚆 '+r.endName)});beltAndRoadNodes.forEach(n=>{L.circleMarker(n.coords,{radius:8,fillColor:'#9C27B0',color:'#fff',weight:2,opacity:.7,fillOpacity:.7}).addTo(rightMap).bindPopup('🛤️ '+n.name)});fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json').then(r=>r.json()).then(data=>{L.geoJSON(data,{style:{color:'#1A237E',weight:2.5,opacity:.7,dashArray:'10,6',fillOpacity:.03,fillColor:'#1A237E'}}).addTo(rightMap)}).catch(()=>{});}
+document.getElementById('compareBtn').addEventListener('click',()=>{compareMode=!compareMode;const b=document.getElementById('compareBtn');if(compareMode){b.classList.add('active');initCompareMode();document.getElementById('compare-label-l').textContent=chapters[currentChapterIndex].year+'年';document.getElementById('compare-label-r').textContent='2024年';document.getElementById('map-container').classList.add('compare-mode');updateRightMap();setTimeout(()=>{rightMap.invalidateSize();map.invalidateSize()},300);}else{b.classList.remove('active');document.getElementById('map-container').classList.remove('compare-mode');setTimeout(()=>map.invalidateSize(),200);}});
+let sidebarCollapsed=false;document.getElementById('sidebar-collapse-btn').addEventListener('click',()=>{sidebarCollapsed=!sidebarCollapsed;const p=document.getElementById('story-panel'),b=document.getElementById('sidebar-collapse-btn');sidebarCollapsed?(p.classList.add('collapsed'),b.innerHTML='▶',b.title='展开侧边栏'):(p.classList.remove('collapsed'),b.innerHTML='◀',b.title='收起侧边栏');setTimeout(()=>{map.invalidateSize();if(rightMap)rightMap.invalidateSize()},400)});
+let trainMarker=null,trainTimers=[];function animateTrain(name){stopTrainAnimation();const r=railwayLines.find(r=>r.name===name);if(!r)return;const coords=r.coordinates;let step=0,total=coords.length-1;trainMarker=L.marker(coords[0],{icon:L.divIcon({className:'train-icon',html:'🚄',iconSize:[60,60],iconAnchor:[30,30]})}).addTo(map);const speed=180;function move(){if(step>=total){stopTrainAnimation();return}step++;const from=coords[step-1],to=coords[step];let t=0;const ss=25,si=speed/ss;const st=setInterval(()=>{t++;if(t>ss){clearInterval(st);return}if(!trainMarker){clearInterval(st);return}trainMarker.setLatLng([from[0]+(to[0]-from[0])*(t/ss),from[1]+(to[1]-from[1])*(t/ss)])},si);trainTimers.push(st,setTimeout(move,speed))}trainTimers.push(setTimeout(move,500))}function stopTrainAnimation(){trainTimers.forEach(t=>{clearTimeout(t);clearInterval(t)});trainTimers=[];if(trainMarker){map.removeLayer(trainMarker);trainMarker=null}}
+function startChapterTrain(ch){if(ch.hlLine&&['青藏铁路','中老铁路','中欧班列·北线','京张铁路','成渝铁路'].includes(ch.hlLine))setTimeout(()=>animateTrain(ch.hlLine),2000)}
+
+// ===== 开场动画执行（仅添加此段，其余完全保留原逻辑）=====
+(function runIntro() {
+  var overlay = document.getElementById('intro-overlay');
+  var title = document.getElementById('intro-title');
+  var rail = document.getElementById('intro-rail-line');
+  var subtitle = document.getElementById('intro-subtitle');
+  setTimeout(function() { title.classList.add('show'); }, 200);
+  setTimeout(function() { rail.style.width = '100%'; }, 600);
+  var text = '从屈辱的开端，到领跑世界的巅峰';
+  subtitle.classList.add('show');
+  setTimeout(function() {
+    subtitle.innerHTML = '';
+    var i = 0;
+    var timer = setInterval(function() {
+      if (i < text.length) {
+        var span = document.createElement('span');
+        span.className = 'intro-char';
+        span.textContent = text[i];
+        subtitle.appendChild(span);
+        i++;
+      } else {
+        clearInterval(timer);
+      }
+    }, 60);
+  }, 900);
+  setTimeout(function() {
+    overlay.classList.add('hidden');
+    // 开场动画结束后加载第一个章节（原本updateChapter(0)被延迟到这里执行）
+    updateChapter(0);
+  }, 3500);
+  setTimeout(function() {
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  }, 4500);
+})();
+// 注意：原脚本末尾的 updateChapter(0); 已移除，由动画结束后调用，避免覆盖。
+</script>
+</body>
+</html>
